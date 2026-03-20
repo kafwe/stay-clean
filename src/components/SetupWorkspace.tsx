@@ -43,22 +43,19 @@ export function SetupWorkspace({
   const [longitude, setLongitude] = useState('')
   const [icalUrl, setIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
-  const [manualDate, setManualDate] = useState('')
-  const [manualApartmentId, setManualApartmentId] = useState('')
   const [locationApartmentId, setLocationApartmentId] = useState('')
   const [locationLatitude, setLocationLatitude] = useState('')
   const [locationLongitude, setLocationLongitude] = useState('')
   const [activeTool, setActiveTool] = useState<
-    'home' | 'location' | 'cleaner' | 'extra-job' | 'travel' | null
+    'home' | 'location' | 'cleaner' | 'travel' | null
   >(null)
   const toolOptions: Array<{
-    value: 'home' | 'location' | 'cleaner' | 'extra-job' | 'travel'
+    value: 'home' | 'location' | 'cleaner' | 'travel'
     label: string
   }> = [
     { value: 'home', label: 'Add a home' },
     { value: 'location', label: 'Update a home location' },
     { value: 'cleaner', label: 'Add a cleaner' },
-    { value: 'extra-job', label: 'Add an extra job' },
     { value: 'travel', label: 'Refresh travel times' },
   ]
 
@@ -195,38 +192,6 @@ export function SetupWorkspace({
               <input className="field" placeholder="Cleaner name" value={cleanerName} onChange={(event) => setCleanerName(event.target.value)} />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-cleaner'}>
                 {busyKey === 'add-cleaner' ? 'Saving...' : 'Add cleaner'}
-              </button>
-            </form>
-          ) : null}
-
-          {activeTool === 'extra-job' ? (
-            <form
-              className="fold-panel space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void runAction('add-manual', async () => {
-                  await postJson('/api/setup/manual-cleans', {
-                    taskDate: manualDate,
-                    apartmentId: manualApartmentId || undefined,
-                    isRecurring: false,
-                  })
-                  setManualDate('')
-                  setManualApartmentId('')
-                })
-              }}
-            >
-              <h2 className="section-title">Add an extra job</h2>
-              <input type="date" className="field" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />
-              <select className="field" value={manualApartmentId} onChange={(event) => setManualApartmentId(event.target.value)}>
-                <option value="">Choose apartment</option>
-                {apartments.map((apartment) => (
-                  <option key={apartment.id} value={apartment.id}>
-                    {apartment.colloquialName ?? apartment.name}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="action-secondary" disabled={busyKey === 'add-manual' || !manualApartmentId}>
-                {busyKey === 'add-manual' ? 'Saving...' : 'Add extra job'}
               </button>
             </form>
           ) : null}
