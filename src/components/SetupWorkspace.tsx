@@ -36,13 +36,13 @@ export function SetupWorkspace({
   onDone: () => Promise<void>
 }) {
   const [apartmentName, setApartmentName] = useState('')
+  const [apartmentColloquialName, setApartmentColloquialName] = useState('')
   const [buildingId, setBuildingId] = useState('')
   const [address, setAddress] = useState('')
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
   const [icalUrl, setIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
-  const [manualLabel, setManualLabel] = useState('')
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [locationApartmentId, setLocationApartmentId] = useState('')
@@ -111,6 +111,7 @@ export function SetupWorkspace({
                 void runAction('add-apartment', async () => {
                   await postJson('/api/setup/apartments', {
                     name: apartmentName,
+                    colloquialName: apartmentColloquialName,
                     buildingId,
                     address,
                     latitude: latitude ? Number(latitude) : null,
@@ -118,6 +119,7 @@ export function SetupWorkspace({
                     icalUrl,
                   })
                   setApartmentName('')
+                  setApartmentColloquialName('')
                   setBuildingId('')
                   setAddress('')
                   setLatitude('')
@@ -127,7 +129,8 @@ export function SetupWorkspace({
               }}
             >
               <h2 className="section-title">Add a home</h2>
-              <input className="field" placeholder="Home name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} />
+              <input className="field" placeholder="Listing name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} />
+              <input className="field" placeholder="Everyday apartment name" value={apartmentColloquialName} onChange={(event) => setApartmentColloquialName(event.target.value)} />
               <input className="field" placeholder="Building name or ID" value={buildingId} onChange={(event) => setBuildingId(event.target.value)} />
               <input className="field" placeholder="Address" value={address} onChange={(event) => setAddress(event.target.value)} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -159,10 +162,10 @@ export function SetupWorkspace({
             >
               <h2 className="section-title">Update home location</h2>
               <select className="field" value={locationApartmentId} onChange={(event) => setLocationApartmentId(event.target.value)}>
-                <option value="">Choose home</option>
+                <option value="">Choose apartment</option>
                 {apartments.map((apartment) => (
                   <option key={apartment.id} value={apartment.id}>
-                    {apartment.name}
+                    {apartment.colloquialName ?? apartment.name}
                     {apartment.latitude !== null && apartment.longitude !== null ? ' • location saved' : ''}
                   </option>
                 ))}
@@ -203,29 +206,26 @@ export function SetupWorkspace({
                 event.preventDefault()
                 void runAction('add-manual', async () => {
                   await postJson('/api/setup/manual-cleans', {
-                    label: manualLabel,
                     taskDate: manualDate,
                     apartmentId: manualApartmentId || undefined,
                     isRecurring: false,
                   })
-                  setManualLabel('')
                   setManualDate('')
                   setManualApartmentId('')
                 })
               }}
             >
               <h2 className="section-title">Add an extra job</h2>
-              <input className="field" placeholder="Job or client name" value={manualLabel} onChange={(event) => setManualLabel(event.target.value)} />
               <input type="date" className="field" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />
               <select className="field" value={manualApartmentId} onChange={(event) => setManualApartmentId(event.target.value)}>
-                <option value="">No linked home</option>
+                <option value="">Choose apartment</option>
                 {apartments.map((apartment) => (
                   <option key={apartment.id} value={apartment.id}>
-                    {apartment.name}
+                    {apartment.colloquialName ?? apartment.name}
                   </option>
                 ))}
               </select>
-              <button type="submit" className="action-secondary" disabled={busyKey === 'add-manual'}>
+              <button type="submit" className="action-secondary" disabled={busyKey === 'add-manual' || !manualApartmentId}>
                 {busyKey === 'add-manual' ? 'Saving...' : 'Add extra job'}
               </button>
             </form>

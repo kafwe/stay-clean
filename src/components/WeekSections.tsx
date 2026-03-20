@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { formatDayLabel } from '#/lib/date'
 import type { Apartment, ChangeSet, ManualReviewItem, ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
@@ -92,6 +92,7 @@ export function DayCard({
   tone = 'default',
   onToggle,
   onRowSelect,
+  onAddJob,
 }: {
   group: ScheduleDayGroup
   open: boolean
@@ -100,43 +101,62 @@ export function DayCard({
   tone?: 'default' | 'attention' | 'changed'
   onToggle: () => void
   onRowSelect?: (row: ScheduleDayGroup['rows'][number]) => void
+  onAddJob?: (date: string) => void
 }) {
   const alwaysOpen = group.rows.length === 1
   const isOpen = alwaysOpen || open
 
   const summaryContent = (
-    <>
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="day-title">{formatDayLabel(group.date)}</p>
-          {isToday ? <span className="cleaner-chip today-chip">Today</span> : null}
-          {badges.map((badge) => (
-            <span key={badge} className="cleaner-chip subtle-chip">
-              {badge}
-            </span>
-          ))}
-        </div>
-        <p className="day-subtitle">
-          {group.rows.length === 0
-            ? 'Nothing booked'
-            : `${group.rows.length} ${group.rows.length === 1 ? 'job' : 'jobs'}`}
-        </p>
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="day-title">{formatDayLabel(group.date)}</p>
+        {isToday ? <span className="cleaner-chip today-chip">Today</span> : null}
+        {badges.map((badge) => (
+          <span key={badge} className="cleaner-chip subtle-chip">
+            {badge}
+          </span>
+        ))}
       </div>
-      {alwaysOpen ? null : <span className="cleaner-chip">{open ? 'Hide' : 'Open'}</span>}
-    </>
+      <p className="day-subtitle">
+        {group.rows.length === 0
+          ? 'Nothing booked'
+          : `${group.rows.length} ${group.rows.length === 1 ? 'job' : 'jobs'}`}
+      </p>
+    </div>
   )
 
   return (
     <article className={`day-card ${isToday ? 'is-today' : ''} ${tone !== 'default' ? `is-${tone}` : ''}`}>
-      {alwaysOpen ? (
-        <div className="day-summary day-summary-static">
-          {summaryContent}
+      <div className="day-header">
+        {alwaysOpen ? (
+          <div className="day-summary day-summary-static">
+            {summaryContent}
+          </div>
+        ) : (
+          <button type="button" className="day-summary day-summary-trigger" onClick={onToggle}>
+            {summaryContent}
+          </button>
+        )}
+
+        <div className="day-summary-actions">
+          {onAddJob ? (
+            <button
+              type="button"
+              className="day-mini-action"
+              onClick={() => onAddJob(group.date)}
+              aria-label={`Add a job to ${formatDayLabel(group.date)}`}
+            >
+              <Plus size={14} />
+              <span>Add job</span>
+            </button>
+          ) : null}
+          {alwaysOpen ? null : (
+            <button type="button" className="day-toggle-chip" onClick={onToggle}>
+              {open ? 'Hide' : 'Open'}
+            </button>
+          )}
         </div>
-      ) : (
-        <button type="button" className="day-summary" onClick={onToggle}>
-          {summaryContent}
-        </button>
-      )}
+      </div>
 
       {isOpen ? (
         <div className="day-body">
@@ -280,22 +300,18 @@ export function ManualReviewPanel({
 export function ManualJobPanel({
   apartments,
   dateOptions,
-  label,
   taskDate,
   apartmentId,
   busy,
-  onLabelChange,
   onTaskDateChange,
   onApartmentChange,
   onSubmit,
 }: {
   apartments: Apartment[]
   dateOptions: string[]
-  label: string
   taskDate: string
   apartmentId: string
   busy: boolean
-  onLabelChange: (value: string) => void
   onTaskDateChange: (value: string) => void
   onApartmentChange: (value: string) => void
   onSubmit: () => void
@@ -305,7 +321,7 @@ export function ManualJobPanel({
       <p className="eyebrow">Add it yourself</p>
       <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra job</h2>
       <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-        Use this for an outside client or any job that is missing from the week.
+        Use this when a clean needs to be added by hand for the week.
       </p>
 
       <form
@@ -315,12 +331,6 @@ export function ManualJobPanel({
           onSubmit()
         }}
       >
-        <input
-          className="field"
-          placeholder="Job or client name"
-          value={label}
-          onChange={(event) => onLabelChange(event.target.value)}
-        />
         <select className="field" value={taskDate} onChange={(event) => onTaskDateChange(event.target.value)}>
           <option value="">Choose a day</option>
           {dateOptions.map((date) => (
@@ -330,14 +340,14 @@ export function ManualJobPanel({
           ))}
         </select>
         <select className="field" value={apartmentId} onChange={(event) => onApartmentChange(event.target.value)}>
-          <option value="">No linked home</option>
+          <option value="">Choose apartment</option>
           {apartments.map((apartment) => (
             <option key={apartment.id} value={apartment.id}>
-              {apartment.name}
+              {apartment.colloquialName ?? apartment.name}
             </option>
           ))}
         </select>
-        <button type="submit" className="action-secondary w-full" disabled={busy || !label.trim() || !taskDate}>
+        <button type="submit" className="action-secondary w-full" disabled={busy || !taskDate || !apartmentId}>
           {busy ? 'Adding...' : 'Add extra job'}
         </button>
       </form>
@@ -345,24 +355,22 @@ export function ManualJobPanel({
   )
 }
 
-export function ChangeRequestSheet({
+export function ManualJobSheet({
   open,
-  weekLabel,
-  message,
+  dayLabel,
+  apartments,
+  apartmentId,
   busy,
-  dayGroups,
-  changeSets,
-  onChange,
+  onApartmentChange,
   onClose,
   onSubmit,
 }: {
   open: boolean
-  weekLabel: string
-  message: string
+  dayLabel: string
+  apartments: Apartment[]
+  apartmentId: string
   busy: boolean
-  dayGroups: ScheduleDayGroup[]
-  changeSets: ChangeSet[]
-  onChange: (value: string) => void
+  onApartmentChange: (value: string) => void
   onClose: () => void
   onSubmit: () => void
 }) {
@@ -370,89 +378,22 @@ export function ChangeRequestSheet({
     return null
   }
 
-  const scheduledDays = dayGroups.filter((group) => group.rows.length > 0)
-
   return (
-    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Ask for a change">
+    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add an extra job">
       <div className="sheet-panel">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Ask for a change</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{weekLabel}</h2>
+            <p className="eyebrow">Add an extra job</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{dayLabel}</h2>
           </div>
           <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
             Close
           </button>
         </div>
 
-        <div className="change-request-intro">
-          <div className="change-request-icon">
-            <MessageSquareText size={18} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-[var(--ink-strong)]">Say it the easy way</p>
-            <p className="mt-1 text-sm leading-7 text-[var(--ink-soft)]">
-              Tell us what should change. We will prepare a suggestion for you to check before anything moves.
-            </p>
-          </div>
-        </div>
-
-        <section className="change-request-context">
-          <div className="change-context-card">
-            <div className="change-context-head">
-              <p className="eyebrow">This week</p>
-              <span className="cleaner-chip subtle-chip">
-                {scheduledDays.length} {scheduledDays.length === 1 ? 'day' : 'days'}
-              </span>
-            </div>
-
-            <div className="change-context-list">
-              {scheduledDays.length ? (
-                scheduledDays.map((group) => (
-                  <div key={group.date} className="change-context-row">
-                    <div>
-                      <p className="change-context-title">{formatDayLabel(group.date)}</p>
-                      <p className="change-context-copy">
-                        {group.rows
-                          .map((row) => `${row.apartmentName} - ${row.cleanerName ?? 'Unassigned'}`)
-                          .join(', ')}
-                      </p>
-                    </div>
-                    <span className="cleaner-chip subtle-chip">
-                      {group.rows.length} {group.rows.length === 1 ? 'job' : 'jobs'}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm leading-7 text-[var(--ink-soft)]">
-                  No jobs are scheduled for this week yet.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {changeSets.length ? (
-            <div className="change-context-card">
-              <div className="change-context-head">
-                <p className="eyebrow">Already waiting</p>
-                <span className="cleaner-chip warning">
-                  {changeSets.length} {changeSets.length === 1 ? 'change' : 'changes'}
-                </span>
-              </div>
-
-              <div className="change-context-list">
-                {changeSets.map((changeSet) => (
-                  <div key={changeSet.id} className="change-context-row">
-                    <div>
-                      <p className="change-context-title">{changeSet.title}</p>
-                      <p className="change-context-copy">{changeSet.summary}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </section>
+        <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
+          Add a clean for this day and it will appear in the week straight away.
+        </p>
 
         <form
           className="mt-5 space-y-4"
@@ -461,19 +402,20 @@ export function ChangeRequestSheet({
             onSubmit()
           }}
         >
-          <textarea
-            value={message}
-            onChange={(event) => onChange(event.target.value)}
-            rows={5}
-            className="field min-h-32"
-            placeholder="Example: Give Sis Nolu Monday off and move her jobs to Lovey."
-          />
+          <select className="field" value={apartmentId} onChange={(event) => onApartmentChange(event.target.value)}>
+            <option value="">Choose apartment</option>
+            {apartments.map((apartment) => (
+              <option key={apartment.id} value={apartment.id}>
+                {apartment.colloquialName ?? apartment.name}
+              </option>
+            ))}
+          </select>
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" className="action-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="action-primary" disabled={busy || !message.trim()}>
-              {busy ? 'Preparing...' : 'Prepare change'}
+            <button type="submit" className="action-primary" disabled={busy || !apartmentId}>
+              {busy ? 'Adding...' : 'Add job'}
             </button>
           </div>
         </form>
@@ -485,31 +427,39 @@ export function ChangeRequestSheet({
 export function QuickEditSheet({
   open,
   title,
+  deleteLabel,
+  deleteHint,
   cleanerId,
   notes,
   taskDate,
   cleaners,
   dateOptions,
   saving,
+  deleting,
   onClose,
   onCleanerChange,
   onNotesChange,
   onTaskDateChange,
   onSave,
+  onDelete,
 }: {
   open: boolean
   title: string
+  deleteLabel: string
+  deleteHint?: string
   cleanerId: string
   notes: string
   taskDate: string
   cleaners: Array<{ id: string; name: string }>
   dateOptions: string[]
   saving: boolean
+  deleting: boolean
   onClose: () => void
   onCleanerChange: (value: string) => void
   onNotesChange: (value: string) => void
   onTaskDateChange: (value: string) => void
   onSave: () => void
+  onDelete: () => void
 }) {
   if (!open) {
     return null
@@ -562,6 +512,18 @@ export function QuickEditSheet({
               placeholder="Add a helpful note for this clean."
             />
           </label>
+        </div>
+
+        <div className="sheet-danger-zone">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink-strong)]">{deleteLabel}</p>
+            <p className="mt-1 text-sm leading-7 text-[var(--ink-soft)]">
+              {deleteHint ?? 'This will remove the clean from the week you are viewing.'}
+            </p>
+          </div>
+          <button type="button" className="action-danger" disabled={deleting} onClick={onDelete}>
+            {deleting ? 'Removing...' : deleteLabel}
+          </button>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">

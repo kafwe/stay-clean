@@ -29,10 +29,12 @@ export function buildWeekTasks(input: {
       tasks.push({
         id: crypto.randomUUID(),
         apartmentId: apartment.id,
-        apartmentName: apartment.name,
+        apartmentName: apartment.colloquialName ?? apartment.name,
         buildingId: apartment.buildingId,
         taskDate: booking.checkOut,
         taskType: 'checkout_clean',
+        sourceBookingId: booking.id,
+        sourceManualRequestId: null,
         notes: booking.guestName ? `Checkout: ${booking.guestName}` : 'Checkout clean',
         requiresReview: false,
       })
@@ -42,10 +44,12 @@ export function buildWeekTasks(input: {
       tasks.push({
         id: crypto.randomUUID(),
         apartmentId: apartment.id,
-        apartmentName: apartment.name,
+        apartmentName: apartment.colloquialName ?? apartment.name,
         buildingId: apartment.buildingId,
         taskDate: booking.checkOut,
         taskType: 'midstay_review',
+        sourceBookingId: booking.id,
+        sourceManualRequestId: null,
         notes: 'Long stay flagged for manual review',
         requiresReview: true,
       })
@@ -65,10 +69,12 @@ export function buildWeekTasks(input: {
         tasks.push({
           id: crypto.randomUUID(),
           apartmentId: apartment?.id ?? null,
-          apartmentName: apartment?.name ?? request.label,
+          apartmentName: apartment?.colloquialName ?? apartment?.name ?? request.label,
           buildingId: apartment?.buildingId ?? null,
           taskDate: matchingDate,
           taskType: 'external_clean',
+          sourceBookingId: null,
+          sourceManualRequestId: request.id,
           notes: request.notes ?? request.label,
           requiresReview: false,
         })
@@ -80,10 +86,12 @@ export function buildWeekTasks(input: {
       tasks.push({
         id: crypto.randomUUID(),
         apartmentId: apartment?.id ?? null,
-        apartmentName: apartment?.name ?? request.label,
+        apartmentName: apartment?.colloquialName ?? apartment?.name ?? request.label,
         buildingId: apartment?.buildingId ?? null,
         taskDate: request.taskDate,
         taskType: 'external_clean',
+        sourceBookingId: null,
+        sourceManualRequestId: request.id,
         notes: request.notes ?? request.label,
         requiresReview: false,
       })
@@ -217,6 +225,8 @@ export function generateAssignments(input: {
         cleanerName: best?.cleaner.name ?? null,
         sortOrder: assignments.filter((row) => row.taskDate === task.taskDate).length,
         source: 'auto',
+        sourceBookingId: task.sourceBookingId ?? null,
+        sourceManualRequestId: task.sourceManualRequestId ?? null,
         notes: task.notes,
         taskType: task.taskType,
       })

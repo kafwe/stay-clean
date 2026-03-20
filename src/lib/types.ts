@@ -6,6 +6,7 @@ export type TaskType = 'checkout_clean' | 'external_clean' | 'midstay_review'
 export interface Apartment {
   id: string
   name: string
+  colloquialName: string | null
   buildingId: string
   address: string
   latitude: number | null
@@ -57,6 +58,8 @@ export interface CleanTask {
   buildingId: string | null
   taskDate: string
   taskType: TaskType
+  sourceBookingId?: string | null
+  sourceManualRequestId?: string | null
   notes: string | null
   requiresReview: boolean
 }
@@ -72,6 +75,8 @@ export interface ScheduleAssignment {
   cleanerName: string | null
   sortOrder: number
   source: 'auto' | 'manual' | 'approved_patch'
+  sourceBookingId?: string | null
+  sourceManualRequestId?: string | null
   notes: string | null
   taskType: TaskType
 }
@@ -151,25 +156,6 @@ export interface DashboardData {
   distanceMatrixPairs: number
   apartmentsMissingCoordinates: number
   emptyStateReason: string | null
-}
-
-export interface ChatOperation {
-  action:
-    | 'reassign_day'
-    | 'reassign_apartment'
-    | 'set_day_off'
-    | 'assign_unassigned_day'
-  weekday?: number
-  date?: string
-  apartmentName?: string
-  fromCleaner?: string
-  toCleaner?: string
-}
-
-export interface ChatPatchProposal {
-  title: string
-  summary: string
-  operations: ChatOperation[]
 }
 
 export interface PushSubscriptionRecord {

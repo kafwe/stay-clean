@@ -4,7 +4,7 @@ import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ChangeRequestSheet, DayCard, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
+import { DayCard, ManualJobSheet, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
 import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 import type { ScheduleAssignment } from '#/lib/types'
@@ -24,9 +24,10 @@ function App() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
-  const [changeSheetOpen, setChangeSheetOpen] = useState(false)
-  const [chatMessage, setChatMessage] = useState('')
   const [editingAssignment, setEditingAssignment] = useState<ScheduleAssignment | null>(null)
+  const [manualJobDate, setManualJobDate] = useState('')
+  const [manualJobOpen, setManualJobOpen] = useState(false)
+  const [manualJobApartmentId, setManualJobApartmentId] = useState('')
   const [editCleanerId, setEditCleanerId] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [editTaskDate, setEditTaskDate] = useState('')
@@ -238,9 +239,6 @@ function App() {
                   ? 'Saving...'
                   : 'Lock in this week'}
             </button>
-            <button type="button" className="action-ghost" onClick={() => setChangeSheetOpen(true)}>
-              Ask for a change
-            </button>
           </div>
         </article>
       </WeekPanelHeader>
@@ -288,6 +286,10 @@ function App() {
                 tone={tone}
                 onToggle={() => setOpenDay(openDay === group.date ? null : group.date)}
                 onRowSelect={(row) => setEditingAssignment(row)}
+                onAddJob={(date) => {
+                  setManualJobDate(date)
+                  setManualJobOpen(true)
+                }}
               />
             ))}
           </div>
@@ -303,6 +305,10 @@ function App() {
                   group={group}
                   open={openDay === group.date}
                   onToggle={() => setOpenDay(openDay === group.date ? null : group.date)}
+                  onAddJob={(date) => {
+                    setManualJobDate(date)
+                    setManualJobOpen(true)
+                  }}
                 />
               ))}
             </div>
@@ -313,12 +319,21 @@ function App() {
       <QuickEditSheet
         open={Boolean(editingAssignment)}
         title={editingAssignment ? `${editingAssignment.apartmentName} · ${formatDayLabel(editingAssignment.taskDate)}` : ''}
+        deleteLabel={
+          editingAssignment?.sourceManualRequestId ? 'Delete this extra job' : 'Remove from this week'
+        }
+        deleteHint={
+          editingAssignment?.sourceManualRequestId
+            ? 'This extra job was added by hand and will be removed from the plan.'
+            : 'This will remove the clean from the week you are viewing. A future booking refresh can add checkout cleans back.'
+        }
         cleanerId={editCleanerId}
         notes={editNotes}
         taskDate={editTaskDate}
         cleaners={data.cleaners}
         dateOptions={weekDates(data.weekStart)}
         saving={busyKey === 'quick-edit'}
+        deleting={busyKey === 'delete-job'}
         onClose={() => setEditingAssignment(null)}
         onCleanerChange={setEditCleanerId}
         onNotesChange={setEditNotes}
@@ -339,37 +354,45 @@ function App() {
             setEditingAssignment(null)
           })
         }}
-      />
-
-      <ChangeRequestSheet
-        open={changeSheetOpen}
-        weekLabel={data.weekLabel}
-        message={chatMessage}
-        busy={busyKey === 'chat'}
-        dayGroups={data.dayGroups}
-        changeSets={data.changeSets}
-        onChange={setChatMessage}
-        onClose={() => {
-          if (busyKey === 'chat') {
+        onDelete={() => {
+          if (!editingAssignment) {
             return
           }
 
-          setChangeSheetOpen(false)
+          void runAction('delete-job', async () => {
+            await postJson('/api/schedule/delete-assignment', {
+              weekStart: data.weekStart,
+              assignmentId: editingAssignment.id,
+            })
+            setEditingAssignment(null)
+          })
+        }}
+      />
+
+      <ManualJobSheet
+        open={manualJobOpen}
+        dayLabel={manualJobDate ? formatDayLabel(manualJobDate) : ''}
+        apartments={data.apartments}
+        apartmentId={manualJobApartmentId}
+        busy={busyKey === 'add-manual'}
+        onApartmentChange={setManualJobApartmentId}
+        onClose={() => {
+          if (busyKey === 'add-manual') {
+            return
+          }
+
+          setManualJobOpen(false)
         }}
         onSubmit={() => {
-          void runAction('chat', async () => {
-            await postJson('/api/chat/propose', {
-              message: chatMessage,
+          void runAction('add-manual', async () => {
+            await postJson('/api/setup/manual-cleans', {
+              taskDate: manualJobDate,
+              apartmentId: manualJobApartmentId || undefined,
+              isRecurring: false,
               weekStart: data.weekStart,
             })
-            setChatMessage('')
-            setChangeSheetOpen(false)
-            startTransition(() => {
-              void router.navigate({
-                to: '/review',
-                search: () => ({ week: data.weekStart }),
-              })
-            })
+            setManualJobApartmentId('')
+            setManualJobOpen(false)
           })
         }}
       />

@@ -92,6 +92,7 @@ const apartments = [
   {
     id: 'apt-atlantic-101',
     name: 'Atlantic Point 101',
+    colloquial_name: 'AP 101',
     building_id: 'atlantic-point',
     address: 'Atlantic Point, Green Point',
     latitude: -33.9062,
@@ -103,6 +104,7 @@ const apartments = [
   {
     id: 'apt-atlantic-203',
     name: 'Atlantic Point 203',
+    colloquial_name: 'AP 203',
     building_id: 'atlantic-point',
     address: 'Atlantic Point, Green Point',
     latitude: -33.9061,
@@ -114,6 +116,7 @@ const apartments = [
   {
     id: 'apt-atlantic-305',
     name: 'Atlantic Point 305',
+    colloquial_name: 'AP 305',
     building_id: 'atlantic-point',
     address: 'Atlantic Point, Green Point',
     latitude: -33.906,
@@ -125,6 +128,7 @@ const apartments = [
   {
     id: 'apt-greenmarket',
     name: 'Greenmarket Loft',
+    colloquial_name: 'Greenmarket',
     building_id: 'greenmarket-house',
     address: 'Greenmarket Square, CBD',
     latitude: -33.9253,
@@ -136,6 +140,7 @@ const apartments = [
   {
     id: 'apt-camps-bay',
     name: 'Camps Bay Studio',
+    colloquial_name: 'Camps Bay',
     building_id: 'camps-bay-studio',
     address: 'Camps Bay Drive, Camps Bay',
     latitude: -33.9519,
@@ -147,6 +152,7 @@ const apartments = [
   {
     id: 'apt-sea-point',
     name: 'Sea Point Nest',
+    colloquial_name: 'Sea Point',
     building_id: 'sea-point-nest',
     address: 'Main Road, Sea Point',
     latitude: -33.9154,

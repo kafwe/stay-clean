@@ -475,20 +475,66 @@ pre code {
   box-shadow: 0 18px 34px rgba(92, 70, 43, 0.06);
 }
 
+.day-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.95rem;
+}
+
 .day-summary {
   display: flex;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   border: 0;
   background: transparent;
-  padding: 1rem 1rem 0.95rem;
+  padding: 0;
   text-align: left;
 }
 
 .day-summary-static {
   cursor: default;
+}
+
+.day-summary-trigger {
+  cursor: pointer;
+}
+
+.day-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+
+.day-mini-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(146, 95, 45, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.72);
+  color: var(--accent-deep);
+  padding: 0.48rem 0.7rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.day-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(146, 95, 45, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.84);
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--ink-strong);
 }
 
 .day-title {
@@ -690,79 +736,6 @@ pre code {
   margin-top: 0.95rem;
 }
 
-.change-request-intro {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  margin-top: 1rem;
-  border: 1px solid rgba(146, 95, 45, 0.1);
-  border-radius: 1.15rem;
-  background: rgba(255, 250, 244, 0.74);
-  padding: 0.95rem 1rem;
-}
-
-.change-request-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  flex: none;
-  border-radius: 999px;
-  background: rgba(191, 155, 113, 0.16);
-  color: var(--accent-deep);
-}
-
-.change-request-context {
-  display: grid;
-  gap: 0.85rem;
-  margin-top: 1rem;
-}
-
-.change-context-card {
-  border: 1px solid rgba(146, 95, 45, 0.1);
-  border-radius: 1.15rem;
-  background: rgba(255, 250, 244, 0.74);
-  padding: 0.95rem 1rem;
-}
-
-.change-context-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.change-context-list {
-  display: grid;
-  gap: 0.8rem;
-  margin-top: 0.85rem;
-  max-height: 11.5rem;
-  overflow-y: auto;
-  padding-right: 0.2rem;
-}
-
-.change-context-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.9rem;
-}
-
-.change-context-title {
-  margin: 0;
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: var(--ink-strong);
-}
-
-.change-context-copy {
-  margin: 0.22rem 0 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: var(--ink-soft);
-}
-
 .review-callout {
   display: flex;
   align-items: center;
@@ -867,6 +840,16 @@ pre code {
   white-space: nowrap;
 }
 
+.sheet-danger-zone {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(146, 74, 45, 0.12);
+  border-radius: 1.15rem;
+  background: rgba(166, 90, 57, 0.06);
+  padding: 1rem;
+}
+
 .tool-grid {
   display: grid;
   gap: 0.75rem;
@@ -940,6 +923,15 @@ textarea.field {
   .detail-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .day-header {
+    flex-direction: column;
+  }
+
+  .day-summary-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .summary-strip,

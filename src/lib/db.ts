@@ -25,6 +25,10 @@ function isMissingTableError(error: unknown) {
   return error instanceof Error && /no such table/i.test(error.message)
 }
 
+function isMissingColumnError(error: unknown) {
+  return error instanceof Error && /no such column/i.test(error.message)
+}
+
 async function all<T>(query: string, bindings: unknown[] = []): Promise<T[]> {
   try {
     const result = await db().prepare(query).bind(...bindings).all<T>()
@@ -52,9 +56,10 @@ function bool(value: unknown) {
 }
 
 export async function listApartments(): Promise<Apartment[]> {
-  const rows = await all<{
+  let rows: Array<{
     id: string
     name: string
+    colloquial_name: string | null
     building_id: string
     address: string
     latitude: number | null
@@ -62,15 +67,56 @@ export async function listApartments(): Promise<Apartment[]> {
     ical_url: string | null
     is_external: number
     notes: string | null
-  }>(
-    `SELECT id, name, building_id, address, latitude, longitude, ical_url, is_external, notes
-     FROM apartments
-     ORDER BY name ASC`,
-  )
+  }>
+
+  try {
+    rows = await all<{
+      id: string
+      name: string
+      colloquial_name: string | null
+      building_id: string
+      address: string
+      latitude: number | null
+      longitude: number | null
+      ical_url: string | null
+      is_external: number
+      notes: string | null
+    }>(
+      `SELECT id, name, colloquial_name, building_id, address, latitude, longitude, ical_url, is_external, notes
+       FROM apartments
+       ORDER BY COALESCE(colloquial_name, name) ASC`,
+    )
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    rows = await all<{
+      id: string
+      name: string
+      building_id: string
+      address: string
+      latitude: number | null
+      longitude: number | null
+      ical_url: string | null
+      is_external: number
+      notes: string | null
+    }>(
+      `SELECT id, name, building_id, address, latitude, longitude, ical_url, is_external, notes
+       FROM apartments
+       ORDER BY name ASC`,
+    ).then((fallbackRows) =>
+      fallbackRows.map((row) => ({
+        ...row,
+        colloquial_name: null,
+      })),
+    )
+  }
 
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
+    colloquialName: row.colloquial_name,
     buildingId: row.building_id,
     address: row.address,
     latitude: row.latitude,
@@ -248,13 +294,15 @@ export async function getWeekRunById(scheduleRunId: string): Promise<ScheduleRun
 }
 
 export async function getWeekAssignments(scheduleRunId: string): Promise<ScheduleAssignment[]> {
-  const rows = await all<{
+  let rows: Array<{
     id: string
     clean_task_id: string
     apartment_id: string | null
     apartment_name: string | null
     building_id: string | null
     task_date: string
+    source_booking_id: string | null
+    source_manual_request_id: string | null
     cleaner_id: string | null
     cleaner_name: string | null
     sort_order: number
@@ -262,29 +310,97 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     assignment_notes: string | null
     task_notes: string | null
     task_type: 'checkout_clean' | 'external_clean' | 'midstay_review'
-  }>(
-    `SELECT
-        sa.id,
-        sa.clean_task_id,
-        ct.apartment_id,
-        a.name AS apartment_name,
-        a.building_id,
-        sa.task_date,
-        sa.cleaner_id,
-        c.name AS cleaner_name,
-        sa.sort_order,
-        sa.source,
-        sa.notes AS assignment_notes,
-        ct.notes AS task_notes,
-        ct.task_type
-     FROM schedule_assignments sa
-     JOIN clean_tasks ct ON ct.id = sa.clean_task_id
-     LEFT JOIN apartments a ON a.id = ct.apartment_id
-     LEFT JOIN cleaners c ON c.id = sa.cleaner_id
-     WHERE sa.schedule_run_id = ?
-     ORDER BY sa.task_date ASC, sa.sort_order ASC, apartment_name ASC`,
-    [scheduleRunId],
-  )
+  }>
+
+  try {
+    rows = await all<{
+      id: string
+      clean_task_id: string
+      apartment_id: string | null
+      apartment_name: string | null
+      building_id: string | null
+      task_date: string
+      source_booking_id: string | null
+      source_manual_request_id: string | null
+      cleaner_id: string | null
+      cleaner_name: string | null
+      sort_order: number
+      source: 'auto' | 'manual' | 'approved_patch'
+      assignment_notes: string | null
+      task_notes: string | null
+      task_type: 'checkout_clean' | 'external_clean' | 'midstay_review'
+    }>(
+      `SELECT
+          sa.id,
+          sa.clean_task_id,
+          ct.apartment_id,
+          COALESCE(a.colloquial_name, a.name) AS apartment_name,
+          a.building_id,
+          sa.task_date,
+          ct.source_booking_id,
+          ct.source_manual_request_id,
+          sa.cleaner_id,
+          c.name AS cleaner_name,
+          sa.sort_order,
+          sa.source,
+          sa.notes AS assignment_notes,
+          ct.notes AS task_notes,
+          ct.task_type
+       FROM schedule_assignments sa
+       JOIN clean_tasks ct ON ct.id = sa.clean_task_id
+       LEFT JOIN apartments a ON a.id = ct.apartment_id
+       LEFT JOIN cleaners c ON c.id = sa.cleaner_id
+       WHERE sa.schedule_run_id = ?
+       ORDER BY sa.task_date ASC, sa.sort_order ASC, apartment_name ASC`,
+      [scheduleRunId],
+    )
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    rows = await all<{
+      id: string
+      clean_task_id: string
+      apartment_id: string | null
+      apartment_name: string | null
+      building_id: string | null
+      task_date: string
+      source_booking_id: string | null
+      source_manual_request_id: string | null
+      cleaner_id: string | null
+      cleaner_name: string | null
+      sort_order: number
+      source: 'auto' | 'manual' | 'approved_patch'
+      assignment_notes: string | null
+      task_notes: string | null
+      task_type: 'checkout_clean' | 'external_clean' | 'midstay_review'
+    }>(
+      `SELECT
+          sa.id,
+          sa.clean_task_id,
+          ct.apartment_id,
+          a.name AS apartment_name,
+          a.building_id,
+          sa.task_date,
+          ct.source_booking_id,
+          ct.source_manual_request_id,
+          sa.cleaner_id,
+          c.name AS cleaner_name,
+          sa.sort_order,
+          sa.source,
+          sa.notes AS assignment_notes,
+          ct.notes AS task_notes,
+          ct.task_type
+       FROM schedule_assignments sa
+       JOIN clean_tasks ct ON ct.id = sa.clean_task_id
+       LEFT JOIN apartments a ON a.id = ct.apartment_id
+       LEFT JOIN cleaners c ON c.id = sa.cleaner_id
+       WHERE sa.schedule_run_id = ?
+       ORDER BY sa.task_date ASC, sa.sort_order ASC, apartment_name ASC`,
+      [scheduleRunId],
+    )
+  }
 
   return rows.map((row) => ({
     id: row.id,
@@ -293,6 +409,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     apartmentName: row.apartment_name ?? row.task_notes ?? 'External clean',
     buildingId: row.building_id,
     taskDate: row.task_date,
+    sourceBookingId: row.source_booking_id,
+    sourceManualRequestId: row.source_manual_request_id,
     cleanerId: row.cleaner_id,
     cleanerName: row.cleaner_name,
     sortOrder: row.sort_order,
@@ -306,27 +424,64 @@ export async function getManualReviewItems(
   weekStartIso: string,
 ): Promise<ManualReviewItem[]> {
   const weekEndIso = toIsoDate(addDays(parseISO(weekStartIso), 6))
-  const rows = await all<{
+  let rows: Array<{
     id: string
     apartment_name: string | null
     check_in: string
     check_out: string
     nights: number
     notes: string | null
-  }>(
-    `SELECT
-       b.id,
-       a.name AS apartment_name,
-       b.check_in,
-       b.check_out,
-       b.nights,
-       'Long stay flagged for manual review' AS notes
-     FROM bookings b
-     LEFT JOIN apartments a ON a.id = b.apartment_id
-     WHERE b.nights > 7
-       AND b.check_out BETWEEN ? AND ?`,
-    [weekStartIso, weekEndIso],
-  )
+  }>
+
+  try {
+    rows = await all<{
+      id: string
+      apartment_name: string | null
+      check_in: string
+      check_out: string
+      nights: number
+      notes: string | null
+    }>(
+      `SELECT
+         b.id,
+         COALESCE(a.colloquial_name, a.name) AS apartment_name,
+         b.check_in,
+         b.check_out,
+         b.nights,
+         'Long stay flagged for manual review' AS notes
+       FROM bookings b
+       LEFT JOIN apartments a ON a.id = b.apartment_id
+       WHERE b.nights > 7
+         AND b.check_out BETWEEN ? AND ?`,
+      [weekStartIso, weekEndIso],
+    )
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    rows = await all<{
+      id: string
+      apartment_name: string | null
+      check_in: string
+      check_out: string
+      nights: number
+      notes: string | null
+    }>(
+      `SELECT
+         b.id,
+         a.name AS apartment_name,
+         b.check_in,
+         b.check_out,
+         b.nights,
+         'Long stay flagged for manual review' AS notes
+       FROM bookings b
+       LEFT JOIN apartments a ON a.id = b.apartment_id
+       WHERE b.nights > 7
+         AND b.check_out BETWEEN ? AND ?`,
+      [weekStartIso, weekEndIso],
+    )
+  }
 
   return rows.map((row) => ({
     id: row.id,
@@ -430,6 +585,7 @@ export async function latestSyncEvent(): Promise<SyncEvent | null> {
 
 export async function createApartment(input: {
   name: string
+  colloquialName?: string | null
   buildingId: string
   address: string
   latitude?: number | null
@@ -441,11 +597,12 @@ export async function createApartment(input: {
   const id = crypto.randomUUID()
   await run(
     `INSERT INTO apartments
-      (id, name, building_id, address, latitude, longitude, ical_url, is_external, notes, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      (id, name, colloquial_name, building_id, address, latitude, longitude, ical_url, is_external, notes, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     [
       id,
       input.name,
+      input.colloquialName ?? null,
       input.buildingId,
       input.address,
       input.latitude ?? null,
@@ -505,6 +662,14 @@ export async function createManualCleanRequest(input: {
     ],
   )
   return id
+}
+
+export async function deleteManualCleanRequest(manualRequestId: string) {
+  await run(
+    `DELETE FROM manual_clean_requests
+     WHERE id = ?`,
+    [manualRequestId],
+  )
 }
 
 export async function savePushSubscription(subscription: {
@@ -672,14 +837,16 @@ export async function saveWeekPlan(input: {
       db()
         .prepare(
           `INSERT INTO clean_tasks
-            (id, apartment_id, task_date, task_type, requires_review, notes, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            (id, apartment_id, task_date, task_type, source_booking_id, source_manual_request_id, requires_review, notes, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         )
         .bind(
           task.id,
           task.apartmentId,
           task.taskDate,
           task.taskType,
+          task.sourceBookingId ?? null,
+          task.sourceManualRequestId ?? null,
           task.requiresReview ? 1 : 0,
           task.notes,
         ),

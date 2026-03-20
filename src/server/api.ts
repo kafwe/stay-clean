@@ -8,10 +8,10 @@ import {
   addCleaner,
   addManualRequest,
   addManualRequestToWeek,
+  deleteScheduleAssignment,
   applyQuickScheduleEdit,
   approveSuggestedChange,
   confirmCurrentWeek,
-  createChatSuggestion,
   getDashboardSnapshot,
   regenerateWeekFromICal,
   rejectSuggestedChange,
@@ -30,6 +30,7 @@ const app = new Hono<{ Bindings: Cloudflare.Env }>()
 
 const apartmentSchema = z.object({
   name: z.string().min(2),
+  colloquialName: z.string().min(2),
   buildingId: z.string().min(1),
   address: z.string().min(4),
   latitude: z.number().nullable().optional(),
@@ -47,7 +48,7 @@ const cleanerSchema = z.object({
 })
 
 const manualSchema = z.object({
-  label: z.string().min(2),
+  label: z.string().min(2).optional(),
   apartmentId: z.string().optional(),
   taskDate: z.string().optional(),
   weekday: z.number().min(0).max(6).nullable().optional(),
@@ -121,6 +122,7 @@ app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c)
   const payload = c.req.valid('json')
   await addApartment({
     ...payload,
+    colloquialName: payload.colloquialName,
     latitude: payload.latitude ?? null,
     longitude: payload.longitude ?? null,
     icalUrl: payload.icalUrl || null,
@@ -186,22 +188,6 @@ app.post('/api/push/subscribe', zValidator('json', subscriptionSchema), async (c
   return c.json({ ok: true })
 })
 
-app.post(
-  '/api/chat/propose',
-  zValidator(
-    'json',
-    z.object({
-      message: z.string().min(4),
-      weekStart: z.string().optional(),
-    }),
-  ),
-  async (c) => {
-    const payload = c.req.valid('json')
-    await createChatSuggestion(payload.message, payload.weekStart)
-    return c.json({ ok: true })
-  },
-)
-
 app.post('/api/schedule/confirm', zValidator('json', weekSchema), async (c) => {
   await confirmCurrentWeek(c.req.valid('json').weekStart)
   return c.json({ ok: true })
@@ -212,6 +198,21 @@ app.post('/api/schedule/manual-edit', zValidator('json', quickEditSchema), async
   await applyQuickScheduleEdit(payload)
   return c.json({ ok: true })
 })
+
+app.post(
+  '/api/schedule/delete-assignment',
+  zValidator(
+    'json',
+    z.object({
+      weekStart: z.string().optional(),
+      assignmentId: z.string().min(1),
+    }),
+  ),
+  async (c) => {
+    await deleteScheduleAssignment(c.req.valid('json'))
+    return c.json({ ok: true })
+  },
+)
 
 app.post('/api/suggestions/:id/approve', async (c) => {
   await approveSuggestedChange(c.req.param('id'))

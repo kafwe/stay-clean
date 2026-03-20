@@ -3,7 +3,7 @@ import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ChangeRequestSheet, ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
+import { ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
 import { shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 
@@ -19,9 +19,6 @@ function ReviewRoute() {
   const search = Route.useSearch()
   const router = useRouter()
   const [password, setPassword] = useState('')
-  const [changeSheetOpen, setChangeSheetOpen] = useState(false)
-  const [chatMessage, setChatMessage] = useState('')
-  const [manualLabel, setManualLabel] = useState('')
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -122,11 +119,6 @@ function ReviewRoute() {
               {data.manualReviews.length} {data.manualReviews.length === 1 ? 'long stay also needs' : 'long stays also need'} a quick check.
             </p>
           </div>
-          <div className="overview-actions">
-            <button type="button" className="action-ghost" onClick={() => setChangeSheetOpen(true)}>
-              Ask for a change
-            </button>
-          </div>
         </article>
       </WeekPanelHeader>
 
@@ -152,23 +144,19 @@ function ReviewRoute() {
         <ManualJobPanel
           apartments={data.apartments}
           dateOptions={dateOptions}
-          label={manualLabel}
           taskDate={manualDate}
           apartmentId={manualApartmentId}
           busy={busyKey === 'add-manual'}
-          onLabelChange={setManualLabel}
           onTaskDateChange={setManualDate}
           onApartmentChange={setManualApartmentId}
           onSubmit={() => {
             void runAction('add-manual', async () => {
               await postJson('/api/setup/manual-cleans', {
-                label: manualLabel,
                 taskDate: manualDate,
                 apartmentId: manualApartmentId || undefined,
                 isRecurring: false,
                 weekStart: data.weekStart,
               })
-              setManualLabel('')
               setManualDate(dateOptions[0] ?? '')
               setManualApartmentId('')
             })
@@ -176,33 +164,6 @@ function ReviewRoute() {
         />
         <ManualReviewPanel items={data.manualReviews} />
       </section>
-
-      <ChangeRequestSheet
-        open={changeSheetOpen}
-        weekLabel={data.weekLabel}
-        message={chatMessage}
-        busy={busyKey === 'chat'}
-        dayGroups={data.dayGroups}
-        changeSets={data.changeSets}
-        onChange={setChatMessage}
-        onClose={() => {
-          if (busyKey === 'chat') {
-            return
-          }
-
-          setChangeSheetOpen(false)
-        }}
-        onSubmit={() => {
-          void runAction('chat', async () => {
-            await postJson('/api/chat/propose', {
-              message: chatMessage,
-              weekStart: data.weekStart,
-            })
-            setChatMessage('')
-            setChangeSheetOpen(false)
-          })
-        }}
-      />
     </MobileAppShell>
   )
 }

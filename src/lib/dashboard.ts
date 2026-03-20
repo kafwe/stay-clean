@@ -2,7 +2,6 @@ import { env } from 'cloudflare:workers'
 import { getCookie } from '@tanstack/react-start/server'
 import { formatDistanceToNow } from 'date-fns'
 import { verifySessionToken, SESSION_COOKIE_NAME } from './auth'
-import { generateChatProposal, applyChatProposal } from './ai'
 import { formatWeekLabel, getNextWeekStartIso, getWeekRange } from './date'
 import {
   countDistancePairs,
@@ -10,6 +9,7 @@ import {
   createApartment,
   createCleaner,
   createManualCleanRequest,
+  deleteManualCleanRequest,
   getChangeSetById,
   getDistanceMatrix,
   getManualReviewItems,
@@ -168,6 +168,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
 
 export async function addApartment(input: {
   name: string
+  colloquialName?: string | null
   buildingId: string
   address: string
   latitude?: number | null
@@ -175,6 +176,26 @@ export async function addApartment(input: {
   icalUrl?: string | null
 }) {
   await createApartment(input)
+}
+
+async function resolveManualRequestLabel(input: {
+  apartmentId?: string | null
+  label?: string | null
+}) {
+  if (input.label?.trim()) {
+    return input.label.trim()
+  }
+
+  if (input.apartmentId) {
+    const apartments = await listApartments()
+    const apartment = apartments.find((item) => item.id === input.apartmentId)
+
+    if (apartment) {
+      return apartment.colloquialName ?? apartment.name
+    }
+  }
+
+  throw new Error('Choose an apartment before adding the job')
 }
 
 export async function saveApartmentCoordinates(input: {
@@ -190,19 +211,22 @@ export async function addCleaner(input: { name: string; colorHex?: string | null
 }
 
 export async function addManualRequest(input: {
-  label: string
+  label?: string | null
   apartmentId?: string | null
   taskDate?: string | null
   weekday?: number | null
   isRecurring?: boolean
   notes?: string | null
 }) {
-  await createManualCleanRequest(input)
+  await createManualCleanRequest({
+    ...input,
+    label: await resolveManualRequestLabel(input),
+  })
 }
 
 export async function addManualRequestToWeek(input: {
   weekStart?: string
-  label: string
+  label?: string | null
   apartmentId?: string | null
   taskDate: string
   notes?: string | null
@@ -211,7 +235,7 @@ export async function addManualRequestToWeek(input: {
   const { weekEndIso } = getWeekRange(new Date(weekStartIso))
 
   await createManualCleanRequest({
-    label: input.label,
+    label: await resolveManualRequestLabel(input),
     apartmentId: input.apartmentId ?? null,
     taskDate: input.taskDate,
     isRecurring: false,
@@ -297,72 +321,6 @@ export async function approveSuggestedChange(changeSetId: string) {
   await updateRunStatus(weekStart, 'confirmed', changeSet.summary)
 }
 
-export async function createChatSuggestion(message: string, weekStartOverride?: string) {
-  const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
-  const run = await ensureWeekPlan(weekStartIso)
-  if (!run) {
-    throw new Error('No week plan is available yet')
-  }
-
-  const assignments = await getWeekAssignments(run.id)
-  const [cleaners, apartments] = await Promise.all([listCleaners(), listApartments()])
-  const proposal = await generateChatProposal({
-    message,
-    currentAssignments: assignments,
-    cleaners: cleaners.map((cleaner) => cleaner.name),
-    apartments: apartments.map((apartment) => apartment.name),
-    weekStart: weekStartIso,
-  })
-
-  const nextAssignments = applyChatProposal({
-    proposal,
-    assignments,
-  }).map((assignment) => {
-    const cleaner = assignment.cleanerName
-      ? assignment.cleanerName
-      : null
-    return {
-      ...assignment,
-      cleanerName: cleaner,
-    }
-  })
-  const cleanerByName = new Map(cleaners.map((cleaner) => [cleaner.name.toLowerCase(), cleaner]))
-  const normalizedAssignments = nextAssignments.map((assignment) => ({
-    ...assignment,
-    cleanerId: assignment.cleanerName
-      ? cleanerByName.get(assignment.cleanerName.toLowerCase())?.id ?? null
-      : null,
-  }))
-  const changes = diffAssignments(assignments, normalizedAssignments)
-
-  if (!changes.length) {
-    throw new Error('The request did not change the current schedule')
-  }
-
-  await createChangeSet({
-    scheduleRunId: run.id,
-    source: 'chat',
-    title: proposal.title,
-    summary: proposal.summary,
-    payload: {
-      title: proposal.title,
-      summary: proposal.summary,
-      tasks: assignments.map((assignment) => ({
-        id: assignment.cleanTaskId,
-        apartmentId: assignment.apartmentId,
-        apartmentName: assignment.apartmentName,
-        buildingId: assignment.buildingId,
-        taskDate: assignment.taskDate,
-        taskType: assignment.taskType,
-        notes: assignment.notes,
-        requiresReview: false,
-      })),
-      assignments: normalizedAssignments,
-      changes,
-    },
-  })
-}
-
 function rebuildTasksFromAssignments(assignments: ScheduleAssignment[]): CleanTask[] {
   return assignments.map((assignment) => ({
     id: assignment.cleanTaskId,
@@ -371,6 +329,8 @@ function rebuildTasksFromAssignments(assignments: ScheduleAssignment[]): CleanTa
     buildingId: assignment.buildingId,
     taskDate: assignment.taskDate,
     taskType: assignment.taskType,
+    sourceBookingId: assignment.sourceBookingId ?? null,
+    sourceManualRequestId: assignment.sourceManualRequestId ?? null,
     notes: assignment.notes,
     requiresReview: assignment.taskType === 'midstay_review',
   }))
@@ -458,6 +418,72 @@ export async function applyQuickScheduleEdit(input: {
     throw new Error('Nothing changed')
   }
 
+  const summary = buildScheduleSummary(nextAssignments)
+
+  await saveWeekPlan({
+    weekStart: weekStartIso,
+    status: run.status,
+    summary,
+    tasks: rebuildTasksFromAssignments(nextAssignments),
+    assignments: nextAssignments,
+  })
+}
+
+export async function deleteScheduleAssignment(input: {
+  weekStart?: string
+  assignmentId: string
+}) {
+  const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
+  const { weekEndIso } = getWeekRange(new Date(weekStartIso))
+  const run = await ensureWeekPlan(weekStartIso)
+
+  if (!run) {
+    throw new Error('No week plan is available yet')
+  }
+
+  const assignments = await getWeekAssignments(run.id)
+  const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
+
+  if (!currentAssignment) {
+    throw new Error('The selected job could not be found')
+  }
+
+  if (currentAssignment.sourceManualRequestId) {
+    await deleteManualCleanRequest(currentAssignment.sourceManualRequestId)
+
+    const [apartments, cleaners, manualRequests, availability, distanceMatrix] = await Promise.all([
+      listApartments(),
+      listCleaners(),
+      listManualRequests(),
+      listAvailability(weekStartIso),
+      getDistanceMatrix(),
+    ])
+    const bookings = await listBookingsForRange(weekStartIso, weekEndIso)
+    const tasks = buildWeekTasks({
+      weekStart: weekStartIso,
+      apartments,
+      bookings,
+      manualRequests,
+    })
+    const nextAssignments = generateAssignments({
+      tasks,
+      cleaners,
+      availability,
+      distanceMatrix,
+    })
+    const summary = buildScheduleSummary(nextAssignments)
+
+    await saveWeekPlan({
+      weekStart: weekStartIso,
+      status: run.status,
+      summary,
+      tasks,
+      assignments: nextAssignments,
+    })
+    return
+  }
+
+  const nextAssignments = assignments.filter((assignment) => assignment.id !== input.assignmentId)
   const summary = buildScheduleSummary(nextAssignments)
 
   await saveWeekPlan({

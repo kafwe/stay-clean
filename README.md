@@ -5,11 +5,11 @@ StayClean is a mobile-first PWA for a single property manager handling short-sta
 ## What is in v1
 
 - TanStack Start app shell with Cloudflare Worker deployment config
-- Hono API routes for auth, setup, chat proposals, push subscriptions, sync, and approval actions
+- Hono API routes for auth, setup, push subscriptions, sync, and approval actions
 - D1 schema for apartments, cleaners, bookings, manual cleans, weekly runs, assignments, suggested changes, and push subscriptions
 - Deterministic scheduler focused on proximity, building split rules, and fairness
 - iCal ingestion skeleton using `ical.js`
-- Approval-gated suggestion flow for iCal changes and chat-driven edits
+- Approval-gated suggestion flow for iCal changes
 - Installable PWA with service worker and Web Push subscription support
 - Client-side PDF export / mobile share flow
 - GitHub Actions deployment via `cloudflare/wrangler-action@v3`
@@ -53,8 +53,6 @@ npm run seed:mock
 
 - `ADMIN_PASSWORD`: manager login password
 - `SESSION_SECRET`: cookie-signing secret
-- `OPENAI_API_KEY`: optional, enables LLM-backed chat proposal parsing
-- `OPENAI_MODEL`: optional, defaults to `gpt-4.1-mini`
 - `VAPID_PUBLIC_KEY`: public push key for the browser
 - `VAPID_PRIVATE_KEY`: JWK private key for server push delivery
 - `APP_BASE_URL`: public app URL used in push deep links
@@ -84,7 +82,6 @@ Automated deploys are configured in [.github/workflows/deploy.yml](/Users/jordy/
 - Draft weeks auto-refresh when bookings change.
 - Confirmed weeks do not auto-mutate.
 - If a confirmed week is impacted by iCal, the app creates a suggested change set, flags the week for review, and sends a push notification.
-- Chat edits also become suggested change sets and require approval.
 
 ## Verification
 
