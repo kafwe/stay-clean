@@ -124,7 +124,6 @@ function SetupRoute() {
         </article>
 
         <SetupWorkspace
-          apartments={data.apartments}
           distanceMatrixPairs={data.distanceMatrixPairs}
           apartmentsMissingCoordinates={data.apartmentsMissingCoordinates}
           busyKey={busyKey}
