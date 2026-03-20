@@ -4,7 +4,7 @@ import type { Apartment, ChangeSet, ManualReviewItem, ScheduleDayGroup, Schedule
 
 export function getWeekStatusLabel(status: string | null) {
   if (status === 'confirmed') {
-    return 'Locked in'
+    return 'Confirmed'
   }
 
   if (status === 'needs_review') {
@@ -117,12 +117,12 @@ export function DayCard({
           </span>
         ))}
       </div>
-      <p className="day-subtitle">
-        {group.rows.length === 0
-          ? 'Nothing booked'
-          : `${group.rows.length} ${group.rows.length === 1 ? 'job' : 'jobs'}`}
-      </p>
-    </div>
+        <p className="day-subtitle">
+          {group.rows.length === 0
+            ? 'Nothing booked'
+            : `${group.rows.length} ${group.rows.length === 1 ? 'clean' : 'cleans'}`}
+        </p>
+      </div>
   )
 
   return (
@@ -144,10 +144,10 @@ export function DayCard({
               type="button"
               className="day-mini-action"
               onClick={() => onAddJob(group.date)}
-              aria-label={`Add a job to ${formatDayLabel(group.date)}`}
+              aria-label={`Add a clean to ${formatDayLabel(group.date)}`}
             >
               <Plus size={14} />
-              <span>Add job</span>
+              <span>Add clean</span>
             </button>
           ) : null}
           {alwaysOpen ? null : (
@@ -319,7 +319,7 @@ export function ManualJobPanel({
   return (
     <article className="ledger-panel rounded-[1.75rem] p-5">
       <p className="eyebrow">Add it yourself</p>
-      <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra job</h2>
+      <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra clean</h2>
       <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
         Use this when a clean needs to be added by hand for the week.
       </p>
@@ -348,7 +348,7 @@ export function ManualJobPanel({
           ))}
         </select>
         <button type="submit" className="action-secondary w-full" disabled={busy || !taskDate || !apartmentId}>
-          {busy ? 'Adding...' : 'Add extra job'}
+          {busy ? 'Adding...' : 'Add extra clean'}
         </button>
       </form>
     </article>
@@ -379,11 +379,11 @@ export function ManualJobSheet({
   }
 
   return (
-    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add an extra job">
+    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add an extra clean">
       <div className="sheet-panel">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Add an extra job</p>
+            <p className="eyebrow">Add an extra clean</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{dayLabel}</h2>
           </div>
           <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
@@ -415,7 +415,7 @@ export function ManualJobSheet({
               Cancel
             </button>
             <button type="submit" className="action-primary" disabled={busy || !apartmentId}>
-              {busy ? 'Adding...' : 'Add job'}
+              {busy ? 'Adding...' : 'Add clean'}
             </button>
           </div>
         </form>

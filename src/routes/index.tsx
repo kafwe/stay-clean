@@ -99,7 +99,7 @@ function App() {
   const emptyGroups = annotatedGroups.filter(
     (item) => item.group.rows.length === 0 && item.badges.length === 0,
   )
-  const jobsLeft = activeGroups.reduce((total, item) => total + item.group.rows.length, 0)
+  const cleansLeft = activeGroups.reduce((total, item) => total + item.group.rows.length, 0)
   const defaultOpenDay = activeGroups.find((item) => !item.group.isEmpty)?.group.date ?? data.weekStart
 
   useEffect(() => {
@@ -199,7 +199,7 @@ function App() {
           <div className="overview-copy">
             <p className="eyebrow">This week at a glance</p>
             <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
-              {jobsLeft} {jobsLeft === 1 ? 'job' : 'jobs'} to run
+              {cleansLeft} {cleansLeft === 1 ? 'clean' : 'cleans'} this week
             </h2>
             <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
               {data.changeSets.length
@@ -234,10 +234,10 @@ function App() {
             >
               <CalendarCheck2 size={16} />
               {data.weekStatus === 'confirmed'
-                ? 'Week locked in'
+                ? 'Week confirmed'
                 : busyKey === 'confirm'
                   ? 'Saving...'
-                  : 'Lock in this week'}
+                  : 'Confirm this week'}
             </button>
           </div>
         </article>
@@ -320,11 +320,11 @@ function App() {
         open={Boolean(editingAssignment)}
         title={editingAssignment ? `${editingAssignment.apartmentName} · ${formatDayLabel(editingAssignment.taskDate)}` : ''}
         deleteLabel={
-          editingAssignment?.sourceManualRequestId ? 'Delete this extra job' : 'Remove from this week'
+          editingAssignment?.sourceManualRequestId ? 'Delete this extra clean' : 'Remove from this week'
         }
         deleteHint={
           editingAssignment?.sourceManualRequestId
-            ? 'This extra job was added by hand and will be removed from the plan.'
+            ? 'This extra clean was added by hand and will be removed from the plan.'
             : 'This will remove the clean from the week you are viewing. A future booking refresh can add checkout cleans back.'
         }
         cleanerId={editCleanerId}

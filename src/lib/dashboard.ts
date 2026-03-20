@@ -195,7 +195,7 @@ async function resolveManualRequestLabel(input: {
     }
   }
 
-  throw new Error('Choose an apartment before adding the job')
+  throw new Error('Choose an apartment before adding the clean')
 }
 
 export async function saveApartmentCoordinates(input: {
@@ -253,7 +253,7 @@ export async function addManualRequestToWeek(input: {
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
 
   if (!run) {
-    throw new Error('Add homes and cleaner names before adding jobs to the week')
+    throw new Error('Add homes and cleaner names before adding cleans to the week')
   }
 
   const bookings = await listBookingsForRange(weekStartIso, weekEndIso)
@@ -377,7 +377,7 @@ export async function applyQuickScheduleEdit(input: {
   const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
 
   if (!currentAssignment) {
-    throw new Error('The selected job could not be found')
+    throw new Error('The selected clean could not be found')
   }
 
   const nextAssignments = resortAssignments(
@@ -445,7 +445,7 @@ export async function deleteScheduleAssignment(input: {
   const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
 
   if (!currentAssignment) {
-    throw new Error('The selected job could not be found')
+    throw new Error('The selected clean could not be found')
   }
 
   if (currentAssignment.sourceManualRequestId) {

@@ -24,7 +24,7 @@ export function AuthView({
             Keep the week clear, calm, and easy to run.
           </h1>
           <p className="max-w-xl text-base leading-8 text-[var(--ink-soft)] sm:text-lg">
-            Review this week, move jobs around when needed, and keep one clean
+            Review this week, move cleans around when needed, and keep one clean
             version of the plan ready to share.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
