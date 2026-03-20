@@ -79,7 +79,12 @@ function MessageRoute() {
   }
 
   return (
-    <MobileAppShell activeTab={null} weekStart={data.weekStart}>
+    <MobileAppShell
+      activeTab={null}
+      weekStart={data.weekStart}
+      onSwipeLeft={() => moveWeek(1)}
+      onSwipeRight={() => moveWeek(-1)}
+    >
       <WeekPanelHeader
         eyebrow="Message about this week"
         title={data.weekLabel}

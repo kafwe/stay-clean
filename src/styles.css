@@ -516,23 +516,35 @@ pre code {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-x: contain;
 }
 
 .mobile-shell-content {
   width: min(100%, 760px);
   margin-inline: auto;
-  padding: 0.8rem 1rem 6rem;
+  padding: 0.8rem 1rem 8.75rem;
 }
 
 .mobile-shell-fab {
-  position: sticky;
-  bottom: 1rem;
-  z-index: 30;
+  position: fixed;
+  left: 50%;
+  bottom: calc(5.8rem + env(safe-area-inset-bottom));
+  z-index: 45;
   display: flex;
   justify-content: center;
+  width: min(100%, 760px);
   padding-inline: 1rem;
-  margin-top: -4.25rem;
+  transform: translateX(-50%);
   pointer-events: none;
+}
+
+.bottom-nav-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 40;
+  width: min(100%, 760px);
+  transform: translateX(-50%);
 }
 
 .bottom-nav {
@@ -819,7 +831,7 @@ textarea.field {
   }
 
   .mobile-shell-content {
-    padding: 0.75rem 0.85rem 6.2rem;
+    padding: 0.75rem 0.85rem 8.9rem;
   }
 
   .compact-hero-top,

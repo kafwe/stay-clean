@@ -168,6 +168,8 @@ function App() {
     <MobileAppShell
       activeTab="week"
       weekStart={data.weekStart}
+      onSwipeLeft={() => moveWeek(1)}
+      onSwipeRight={() => moveWeek(-1)}
       floatingAction={
         <Link to="/message" search={{ week: data.weekStart }} className="floating-action no-underline">
           <PenSquare size={18} />
