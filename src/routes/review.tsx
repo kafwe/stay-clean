@@ -1,10 +1,10 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { startTransition, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ChangeRequestSheet, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
-import { shiftWeek } from '#/lib/date'
+import { ChangeRequestSheet, ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
+import { shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 
 export const Route = createFileRoute('/review')({
@@ -21,8 +21,16 @@ function ReviewRoute() {
   const [password, setPassword] = useState('')
   const [changeSheetOpen, setChangeSheetOpen] = useState(false)
   const [chatMessage, setChatMessage] = useState('')
+  const [manualLabel, setManualLabel] = useState('')
+  const [manualDate, setManualDate] = useState('')
+  const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const dateOptions = weekDates(data.weekStart)
+
+  useEffect(() => {
+    setManualDate((currentDate) => (dateOptions.includes(currentDate) ? currentDate : dateOptions[0] ?? ''))
+  }, [data.weekStart, dateOptions])
 
   async function refresh() {
     startTransition(() => {
@@ -140,6 +148,31 @@ function ReviewRoute() {
               await postJson(`/api/suggestions/${changeSetId}/reject`)
             })
           }
+        />
+        <ManualJobPanel
+          apartments={data.apartments}
+          dateOptions={dateOptions}
+          label={manualLabel}
+          taskDate={manualDate}
+          apartmentId={manualApartmentId}
+          busy={busyKey === 'add-manual'}
+          onLabelChange={setManualLabel}
+          onTaskDateChange={setManualDate}
+          onApartmentChange={setManualApartmentId}
+          onSubmit={() => {
+            void runAction('add-manual', async () => {
+              await postJson('/api/setup/manual-cleans', {
+                label: manualLabel,
+                taskDate: manualDate,
+                apartmentId: manualApartmentId || undefined,
+                isRecurring: false,
+                weekStart: data.weekStart,
+              })
+              setManualLabel('')
+              setManualDate(dateOptions[0] ?? '')
+              setManualApartmentId('')
+            })
+          }}
         />
         <ManualReviewPanel items={data.manualReviews} />
       </section>

@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react'
 import { formatDayLabel } from '#/lib/date'
-import type { ChangeSet, ManualReviewItem, ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
+import type { Apartment, ChangeSet, ManualReviewItem, ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
 export function getWeekStatusLabel(status: string | null) {
   if (status === 'confirmed') {
@@ -273,6 +273,74 @@ export function ManualReviewPanel({
           </p>
         )}
       </div>
+    </article>
+  )
+}
+
+export function ManualJobPanel({
+  apartments,
+  dateOptions,
+  label,
+  taskDate,
+  apartmentId,
+  busy,
+  onLabelChange,
+  onTaskDateChange,
+  onApartmentChange,
+  onSubmit,
+}: {
+  apartments: Apartment[]
+  dateOptions: string[]
+  label: string
+  taskDate: string
+  apartmentId: string
+  busy: boolean
+  onLabelChange: (value: string) => void
+  onTaskDateChange: (value: string) => void
+  onApartmentChange: (value: string) => void
+  onSubmit: () => void
+}) {
+  return (
+    <article className="ledger-panel rounded-[1.75rem] p-5">
+      <p className="eyebrow">Add it yourself</p>
+      <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra job</h2>
+      <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
+        Use this for an outside client or any job that is missing from the week.
+      </p>
+
+      <form
+        className="mt-5 space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit()
+        }}
+      >
+        <input
+          className="field"
+          placeholder="Job or client name"
+          value={label}
+          onChange={(event) => onLabelChange(event.target.value)}
+        />
+        <select className="field" value={taskDate} onChange={(event) => onTaskDateChange(event.target.value)}>
+          <option value="">Choose a day</option>
+          {dateOptions.map((date) => (
+            <option key={date} value={date}>
+              {formatDayLabel(date)}
+            </option>
+          ))}
+        </select>
+        <select className="field" value={apartmentId} onChange={(event) => onApartmentChange(event.target.value)}>
+          <option value="">No linked home</option>
+          {apartments.map((apartment) => (
+            <option key={apartment.id} value={apartment.id}>
+              {apartment.name}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="action-secondary w-full" disabled={busy || !label.trim() || !taskDate}>
+          {busy ? 'Adding...' : 'Add extra job'}
+        </button>
+      </form>
     </article>
   )
 }

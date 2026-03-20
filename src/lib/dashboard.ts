@@ -200,6 +200,62 @@ export async function addManualRequest(input: {
   await createManualCleanRequest(input)
 }
 
+export async function addManualRequestToWeek(input: {
+  weekStart?: string
+  label: string
+  apartmentId?: string | null
+  taskDate: string
+  notes?: string | null
+}) {
+  const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
+  const { weekEndIso } = getWeekRange(new Date(weekStartIso))
+
+  await createManualCleanRequest({
+    label: input.label,
+    apartmentId: input.apartmentId ?? null,
+    taskDate: input.taskDate,
+    isRecurring: false,
+    notes: input.notes ?? null,
+  })
+
+  const [apartments, cleaners, manualRequests, availability, distanceMatrix] = await Promise.all([
+    listApartments(),
+    listCleaners(),
+    listManualRequests(),
+    listAvailability(weekStartIso),
+    getDistanceMatrix(),
+  ])
+
+  const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
+
+  if (!run) {
+    throw new Error('Add homes and cleaner names before adding jobs to the week')
+  }
+
+  const bookings = await listBookingsForRange(weekStartIso, weekEndIso)
+  const tasks = buildWeekTasks({
+    weekStart: weekStartIso,
+    apartments,
+    bookings,
+    manualRequests,
+  })
+  const assignments = generateAssignments({
+    tasks,
+    cleaners,
+    availability,
+    distanceMatrix,
+  })
+  const summary = buildScheduleSummary(assignments)
+
+  await saveWeekPlan({
+    weekStart: weekStartIso,
+    status: run.status,
+    summary,
+    tasks,
+    assignments,
+  })
+}
+
 export async function confirmCurrentWeek(weekStartOverride?: string) {
   const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
   await updateRunStatus(weekStartIso, 'confirmed')

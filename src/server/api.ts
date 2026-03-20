@@ -7,6 +7,7 @@ import {
   addApartment,
   addCleaner,
   addManualRequest,
+  addManualRequestToWeek,
   applyQuickScheduleEdit,
   approveSuggestedChange,
   confirmCurrentWeek,
@@ -52,6 +53,7 @@ const manualSchema = z.object({
   weekday: z.number().min(0).max(6).nullable().optional(),
   isRecurring: z.boolean().default(false),
   notes: z.string().optional(),
+  weekStart: z.string().optional(),
 })
 
 const subscriptionSchema = z.object({
@@ -153,12 +155,24 @@ app.post('/api/setup/cleaners', zValidator('json', cleanerSchema), async (c) => 
 
 app.post('/api/setup/manual-cleans', zValidator('json', manualSchema), async (c) => {
   const payload = c.req.valid('json')
-  await addManualRequest({
-    ...payload,
-    apartmentId: payload.apartmentId || null,
-    taskDate: payload.taskDate || null,
-    notes: payload.notes || null,
-  })
+
+  if (payload.weekStart && payload.taskDate && !payload.isRecurring) {
+    await addManualRequestToWeek({
+      weekStart: payload.weekStart,
+      label: payload.label,
+      apartmentId: payload.apartmentId || null,
+      taskDate: payload.taskDate,
+      notes: payload.notes || null,
+    })
+  } else {
+    await addManualRequest({
+      ...payload,
+      apartmentId: payload.apartmentId || null,
+      taskDate: payload.taskDate || null,
+      notes: payload.notes || null,
+    })
+  }
+
   return c.json({ ok: true })
 })
 
