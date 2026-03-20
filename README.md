@@ -43,6 +43,12 @@ npx wrangler d1 migrations apply stay-clean --remote
 npm run dev
 ```
 
+6. Seed local mock data:
+
+```bash
+npm run seed:mock
+```
+
 ## Required secrets
 
 - `ADMIN_PASSWORD`: manager login password
@@ -87,3 +93,12 @@ The current scaffold has been verified with:
 ```bash
 npm run build
 ```
+
+For local testing, `npm run seed:mock` creates:
+
+- 6 Cape Town apartments with coordinates
+- 3 cleaners with availability
+- current-week and next-week bookings
+- a long-stay review case
+- recurring and one-off manual cleans
+- a seeded distance matrix
