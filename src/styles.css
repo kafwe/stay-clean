@@ -236,7 +236,8 @@ pre code {
 
 .action-primary,
 .action-secondary,
-.action-ghost {
+.action-ghost,
+.action-danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -267,9 +268,16 @@ pre code {
   color: var(--ink-soft);
 }
 
+.action-danger {
+  border: 1px solid rgba(146, 74, 45, 0.22);
+  background: rgba(166, 90, 57, 0.1);
+  color: #8d4728;
+}
+
 .action-primary:hover,
 .action-secondary:hover,
 .action-ghost:hover,
+.action-danger:hover,
 .schedule-group:hover {
   transform: translateY(-1px);
 }
@@ -867,7 +875,8 @@ textarea.field {
 
   .action-primary,
   .action-secondary,
-  .action-ghost {
+  .action-ghost,
+  .action-danger {
     width: 100%;
   }
 }

@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { Apartment } from '#/lib/types'
 
@@ -21,7 +20,6 @@ export function SetupWorkspace({
   apartments,
   distanceMatrixPairs,
   apartmentsMissingCoordinates,
-  weekStart,
   busyKey,
   error,
   setBusyKey,
@@ -31,7 +29,6 @@ export function SetupWorkspace({
   apartments: Apartment[]
   distanceMatrixPairs: number
   apartmentsMissingCoordinates: number
-  weekStart: string
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
@@ -260,18 +257,6 @@ export function SetupWorkspace({
       {error ? (
         <section className="error-banner">{error}</section>
       ) : null}
-
-      <article className="ledger-panel rounded-[1.75rem] p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="eyebrow">Need the weekly view?</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Back to the plan</h2>
-          </div>
-          <Link to="/" search={{ week: weekStart }} className="action-secondary no-underline">
-            Open week
-          </Link>
-        </div>
-      </article>
     </section>
   )
 }

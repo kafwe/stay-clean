@@ -1,9 +1,8 @@
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PwaClient } from '#/components/PwaClient'
-import { PdfExportButton } from '#/components/PdfExportButton'
 import { SetupWorkspace } from '#/components/SetupWorkspace'
 import { WeekPanelHeader } from '#/components/WeekSections'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
@@ -103,40 +102,14 @@ function SetupRoute() {
 
             <div className="detail-card items-start">
               <div>
-                <p className="text-sm font-semibold text-[var(--ink-strong)]">Share the week</p>
+                <p className="text-sm font-semibold text-[var(--accent-deep)]">Sign out of this device</p>
                 <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  Download or share the current week in the same simple table layout.
-                </p>
-              </div>
-              <PdfExportButton
-                weekLabel={data.weekLabel}
-                weekStatus={data.weekStatus}
-                dayGroups={data.dayGroups}
-              />
-            </div>
-
-            <div className="detail-card items-start">
-              <div>
-                <p className="text-sm font-semibold text-[var(--ink-strong)]">Back to the week</p>
-                <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  Return to the weekly plan and keep working from there.
-                </p>
-              </div>
-              <Link to="/" search={{ week: data.weekStart }} className="action-secondary no-underline">
-                Open week
-              </Link>
-            </div>
-
-            <div className="detail-card items-start">
-              <div>
-                <p className="text-sm font-semibold text-[var(--ink-strong)]">Sign out</p>
-                <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  Close the manager session on this device.
+                  This will end the current manager session and require the password again.
                 </p>
               </div>
               <button
                 type="button"
-                className="action-secondary"
+                className="action-danger"
                 disabled={busyKey === 'logout'}
                 onClick={() =>
                   runAction('logout', async () => {
@@ -154,7 +127,6 @@ function SetupRoute() {
           apartments={data.apartments}
           distanceMatrixPairs={data.distanceMatrixPairs}
           apartmentsMissingCoordinates={data.apartmentsMissingCoordinates}
-          weekStart={data.weekStart}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}
