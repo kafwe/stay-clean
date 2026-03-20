@@ -84,6 +84,10 @@ function App() {
   const activeGroups = annotatedGroups
     .filter((item) => item.group.rows.length > 0 || item.badges.length > 0)
     .sort((left, right) => {
+      if (!isCurrentWeek) {
+        return left.group.date.localeCompare(right.group.date)
+      }
+
       if (left.priority === right.priority) {
         return left.group.date.localeCompare(right.group.date)
       }
