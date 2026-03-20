@@ -262,50 +262,77 @@ export function ManualReviewPanel({
   )
 }
 
-export function MessageComposer({
+export function ChangeRequestSheet({
+  open,
+  weekLabel,
   message,
   busy,
   onChange,
+  onClose,
   onSubmit,
 }: {
+  open: boolean
+  weekLabel: string
   message: string
   busy: boolean
   onChange: (value: string) => void
+  onClose: () => void
   onSubmit: () => void
 }) {
+  if (!open) {
+    return null
+  }
+
   return (
-    <article className="ledger-panel rounded-[1.75rem] p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Send a message</p>
-          <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">
-            Change the plan in plain language
-          </h2>
+    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Ask for a change">
+      <div className="sheet-panel">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Ask for a change</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{weekLabel}</h2>
+          </div>
+          <button type="button" className="action-ghost !w-auto" onClick={onClose}>
+            Close
+          </button>
         </div>
-        <MessageSquareText className="text-[var(--accent)]" size={20} />
+
+        <div className="change-request-intro">
+          <div className="change-request-icon">
+            <MessageSquareText size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink-strong)]">Say it the easy way</p>
+            <p className="mt-1 text-sm leading-7 text-[var(--ink-soft)]">
+              Tell us what should change. We will prepare a suggestion for you to check before anything moves.
+            </p>
+          </div>
+        </div>
+
+        <form
+          className="mt-5 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSubmit()
+          }}
+        >
+          <textarea
+            value={message}
+            onChange={(event) => onChange(event.target.value)}
+            rows={5}
+            className="field min-h-32"
+            placeholder="Example: Give Sis Nolu Monday off and move her jobs to Lovey."
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="button" className="action-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="action-primary" disabled={busy || !message.trim()}>
+              {busy ? 'Preparing...' : 'Prepare change'}
+            </button>
+          </div>
+        </form>
       </div>
-      <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-        Nothing changes until you review and approve the suggestion.
-      </p>
-      <form
-        className="mt-5 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSubmit()
-        }}
-      >
-        <textarea
-          value={message}
-          onChange={(event) => onChange(event.target.value)}
-          rows={5}
-          className="field min-h-32"
-          placeholder="Example: Give Sis Nolu Monday off and move her jobs to Lovey."
-        />
-        <button type="submit" className="action-primary w-full" disabled={busy || !message.trim()}>
-          {busy ? 'Preparing...' : 'Prepare change'}
-        </button>
-      </form>
-    </article>
+    </div>
   )
 }
 

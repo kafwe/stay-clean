@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ReviewRouteImport } from './routes/review'
-import { Route as MessageRouteImport } from './routes/message'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SetupRoute = SetupRouteImport.update({
@@ -24,11 +23,6 @@ const ReviewRoute = ReviewRouteImport.update({
   path: '/review',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MessageRoute = MessageRouteImport.update({
-  id: '/message',
-  path: '/message',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,34 +31,30 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/message': typeof MessageRoute
   '/review': typeof ReviewRoute
   '/setup': typeof SetupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/message': typeof MessageRoute
   '/review': typeof ReviewRoute
   '/setup': typeof SetupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/message': typeof MessageRoute
   '/review': typeof ReviewRoute
   '/setup': typeof SetupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/message' | '/review' | '/setup'
+  fullPaths: '/' | '/review' | '/setup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/message' | '/review' | '/setup'
-  id: '__root__' | '/' | '/message' | '/review' | '/setup'
+  to: '/' | '/review' | '/setup'
+  id: '__root__' | '/' | '/review' | '/setup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MessageRoute: typeof MessageRoute
   ReviewRoute: typeof ReviewRoute
   SetupRoute: typeof SetupRoute
 }
@@ -85,13 +75,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/message': {
-      id: '/message'
-      path: '/message'
-      fullPath: '/message'
-      preLoaderRoute: typeof MessageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -104,7 +87,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MessageRoute: MessageRoute,
   ReviewRoute: ReviewRoute,
   SetupRoute: SetupRoute,
 }

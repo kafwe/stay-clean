@@ -4,7 +4,7 @@ import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { DayCard, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
+import { ChangeRequestSheet, DayCard, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
 import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 import type { ScheduleAssignment } from '#/lib/types'
@@ -24,6 +24,8 @@ function App() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
+  const [changeSheetOpen, setChangeSheetOpen] = useState(false)
+  const [chatMessage, setChatMessage] = useState('')
   const [editingAssignment, setEditingAssignment] = useState<ScheduleAssignment | null>(null)
   const [editCleanerId, setEditCleanerId] = useState('')
   const [editNotes, setEditNotes] = useState('')
@@ -232,6 +234,9 @@ function App() {
                   ? 'Saving...'
                   : 'Lock in this week'}
             </button>
+            <button type="button" className="action-ghost" onClick={() => setChangeSheetOpen(true)}>
+              Ask for a change
+            </button>
           </div>
         </article>
       </WeekPanelHeader>
@@ -328,6 +333,37 @@ function App() {
               taskDate: editTaskDate,
             })
             setEditingAssignment(null)
+          })
+        }}
+      />
+
+      <ChangeRequestSheet
+        open={changeSheetOpen}
+        weekLabel={data.weekLabel}
+        message={chatMessage}
+        busy={busyKey === 'chat'}
+        onChange={setChatMessage}
+        onClose={() => {
+          if (busyKey === 'chat') {
+            return
+          }
+
+          setChangeSheetOpen(false)
+        }}
+        onSubmit={() => {
+          void runAction('chat', async () => {
+            await postJson('/api/chat/propose', {
+              message: chatMessage,
+              weekStart: data.weekStart,
+            })
+            setChatMessage('')
+            setChangeSheetOpen(false)
+            startTransition(() => {
+              void router.navigate({
+                to: '/review',
+                search: () => ({ week: data.weekStart }),
+              })
+            })
           })
         }}
       />

@@ -3,7 +3,7 @@ import { startTransition, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
+import { ChangeRequestSheet, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
 import { shiftWeek } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 
@@ -19,6 +19,8 @@ function ReviewRoute() {
   const search = Route.useSearch()
   const router = useRouter()
   const [password, setPassword] = useState('')
+  const [changeSheetOpen, setChangeSheetOpen] = useState(false)
+  const [chatMessage, setChatMessage] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,6 +114,11 @@ function ReviewRoute() {
               {data.manualReviews.length} {data.manualReviews.length === 1 ? 'long stay also needs' : 'long stays also need'} a quick check.
             </p>
           </div>
+          <div className="overview-actions">
+            <button type="button" className="action-ghost" onClick={() => setChangeSheetOpen(true)}>
+              Ask for a change
+            </button>
+          </div>
         </article>
       </WeekPanelHeader>
 
@@ -136,6 +143,31 @@ function ReviewRoute() {
         />
         <ManualReviewPanel items={data.manualReviews} />
       </section>
+
+      <ChangeRequestSheet
+        open={changeSheetOpen}
+        weekLabel={data.weekLabel}
+        message={chatMessage}
+        busy={busyKey === 'chat'}
+        onChange={setChatMessage}
+        onClose={() => {
+          if (busyKey === 'chat') {
+            return
+          }
+
+          setChangeSheetOpen(false)
+        }}
+        onSubmit={() => {
+          void runAction('chat', async () => {
+            await postJson('/api/chat/propose', {
+              message: chatMessage,
+              weekStart: data.weekStart,
+            })
+            setChatMessage('')
+            setChangeSheetOpen(false)
+          })
+        }}
+      />
     </MobileAppShell>
   )
 }
