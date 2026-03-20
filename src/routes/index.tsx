@@ -1,8 +1,9 @@
-import { CalendarCheck2, PenSquare, RefreshCcw } from 'lucide-react'
+import { CalendarCheck2, RefreshCcw } from 'lucide-react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
+import { PdfExportButton } from '#/components/PdfExportButton'
 import { DayCard, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
 import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
@@ -171,10 +172,12 @@ function App() {
       onSwipeLeft={() => moveWeek(1)}
       onSwipeRight={() => moveWeek(-1)}
       floatingAction={
-        <Link to="/message" search={{ week: data.weekStart }} className="floating-action no-underline">
-          <PenSquare size={18} />
-          Ask for a change
-        </Link>
+        <PdfExportButton
+          weekLabel={data.weekLabel}
+          weekStatus={data.weekStatus}
+          dayGroups={data.dayGroups}
+          variant="fab"
+        />
       }
     >
       <WeekPanelHeader

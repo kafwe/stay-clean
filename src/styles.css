@@ -527,14 +527,11 @@ pre code {
 
 .mobile-shell-fab {
   position: fixed;
-  left: 50%;
+  right: max(1rem, calc((100vw - 760px) / 2 + 1rem));
   bottom: calc(5.8rem + env(safe-area-inset-bottom));
   z-index: 45;
   display: flex;
-  justify-content: center;
-  width: min(100%, 760px);
-  padding-inline: 1rem;
-  transform: translateX(-50%);
+  justify-content: flex-end;
   pointer-events: none;
 }
 
@@ -565,13 +562,14 @@ pre code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  min-width: 12rem;
+  min-width: 0;
+  width: 3.25rem;
+  height: 3.25rem;
   border-radius: 999px;
   border: 1px solid rgba(117, 77, 43, 0.12);
   background: linear-gradient(135deg, #b78654, #8f5a2b);
   color: white;
-  padding: 0.9rem 1.15rem;
+  padding: 0;
   box-shadow: 0 18px 34px rgba(92, 70, 43, 0.22);
 }
 
@@ -840,6 +838,10 @@ textarea.field {
 
   .mobile-shell-content {
     padding: 0.75rem 0.85rem 8.9rem;
+  }
+
+  .mobile-shell-fab {
+    right: 0.85rem;
   }
 
   .compact-hero-top,

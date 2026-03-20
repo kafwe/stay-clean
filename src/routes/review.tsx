@@ -1,8 +1,8 @@
-import { PenSquare } from 'lucide-react'
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
+import { PdfExportButton } from '#/components/PdfExportButton'
 import { ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
 import { shiftWeek } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
@@ -85,10 +85,12 @@ function ReviewRoute() {
       onSwipeLeft={() => moveWeek(1)}
       onSwipeRight={() => moveWeek(-1)}
       floatingAction={
-        <Link to="/message" search={{ week: data.weekStart }} className="floating-action no-underline">
-          <PenSquare size={18} />
-          Ask for a change
-        </Link>
+        <PdfExportButton
+          weekLabel={data.weekLabel}
+          weekStatus={data.weekStatus}
+          dayGroups={data.dayGroups}
+          variant="fab"
+        />
       }
     >
       <WeekPanelHeader
