@@ -1,11 +1,12 @@
-import { CalendarCheck2, RefreshCcw } from 'lucide-react'
+import { CalendarCheck2, PenSquare, RefreshCcw } from 'lucide-react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
-import { DayCard, WeekPanelHeader } from '#/components/WeekSections'
-import { getTodayIsoInTimezone, isoInWeek, shiftWeek } from '#/lib/date'
+import { DayCard, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
+import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
+import type { ScheduleAssignment } from '#/lib/types'
 
 export const Route = createFileRoute('/')({
   validateSearch: weekSearchSchema,
@@ -22,25 +23,90 @@ function App() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
+  const [editingAssignment, setEditingAssignment] = useState<ScheduleAssignment | null>(null)
+  const [editCleanerId, setEditCleanerId] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editTaskDate, setEditTaskDate] = useState('')
 
   const todayIso = getTodayIsoInTimezone()
   const isCurrentWeek = isoInWeek(todayIso, data.weekStart)
-  const todayIndex = isCurrentWeek
-    ? data.dayGroups.findIndex((group) => group.date === todayIso)
-    : -1
+  const changedDates = new Set(
+    data.changeSets.flatMap((changeSet) => changeSet.payload.changes.map((change) => change.date)),
+  )
+  const reviewDates = new Set(data.manualReviews.map((item) => item.checkOut))
 
-  const upcomingGroups = todayIndex >= 0 ? data.dayGroups.slice(todayIndex) : data.dayGroups
-  const earlierGroups = todayIndex > 0 ? data.dayGroups.slice(0, todayIndex) : []
-  const focusGroups = upcomingGroups.length ? upcomingGroups : data.dayGroups
-  const jobsLeft = focusGroups.reduce((total, group) => total + group.rows.length, 0)
+  const annotatedGroups = data.dayGroups.map((group) => {
+    const badges: string[] = []
+    let priority = 4
+    let tone: 'default' | 'attention' | 'changed' = 'default'
+
+    if (changedDates.has(group.date)) {
+      badges.push('Changes waiting')
+      priority = 0
+      tone = 'changed'
+    }
+
+    if (reviewDates.has(group.date)) {
+      badges.push('Review stay')
+      priority = 0
+      tone = 'changed'
+    }
+
+    if (isCurrentWeek && group.date < todayIso && group.rows.length > 0) {
+      badges.push('Check this day')
+      priority = Math.min(priority, 1)
+      tone = tone === 'changed' ? 'changed' : 'attention'
+    }
+
+    if (group.date === todayIso) {
+      priority = Math.min(priority, 2)
+    }
+
+    if (group.date > todayIso && group.rows.length > 0) {
+      priority = Math.min(priority, 3)
+    }
+
+    if (group.rows.length === 0 && badges.length === 0) {
+      priority = 5
+    }
+
+    return {
+      group,
+      badges,
+      priority,
+      tone,
+    }
+  })
+
+  const activeGroups = annotatedGroups
+    .filter((item) => item.group.rows.length > 0 || item.badges.length > 0)
+    .sort((left, right) => {
+      if (left.priority === right.priority) {
+        return left.group.date.localeCompare(right.group.date)
+      }
+
+      return left.priority - right.priority
+    })
+
+  const emptyGroups = annotatedGroups.filter(
+    (item) => item.group.rows.length === 0 && item.badges.length === 0,
+  )
+  const jobsLeft = activeGroups.reduce((total, item) => total + item.group.rows.length, 0)
+  const defaultOpenDay = activeGroups.find((item) => !item.group.isEmpty)?.group.date ?? data.weekStart
 
   useEffect(() => {
-    const firstBusyDay =
-      focusGroups.find((group) => !group.isEmpty)?.date ??
-      earlierGroups.find((group) => !group.isEmpty)?.date ??
-      data.weekStart
-    setOpenDay(firstBusyDay)
-  }, [data.weekStart, earlierGroups, focusGroups])
+    setOpenDay(defaultOpenDay)
+  }, [defaultOpenDay])
+
+  useEffect(() => {
+    if (!editingAssignment) {
+      return
+    }
+
+    setEditCleanerId(editingAssignment.cleanerId ?? '')
+    setEditNotes(editingAssignment.notes ?? '')
+    setEditTaskDate(editingAssignment.taskDate)
+  }, [editingAssignment])
 
   async function refresh() {
     startTransition(() => {
@@ -99,12 +165,21 @@ function App() {
   }
 
   return (
-    <MobileAppShell activeTab="week" weekStart={data.weekStart}>
+    <MobileAppShell
+      activeTab="week"
+      weekStart={data.weekStart}
+      floatingAction={
+        <Link to="/message" search={{ week: data.weekStart }} className="floating-action no-underline">
+          <PenSquare size={18} />
+          Ask for a change
+        </Link>
+      }
+    >
       <WeekPanelHeader
         title={data.weekLabel}
         status={data.weekStatus}
         summaryItems={[
-          `${jobsLeft} ${jobsLeft === 1 ? 'job' : 'jobs'} left`,
+          `${jobsLeft} ${jobsLeft === 1 ? 'job' : 'jobs'} to run`,
           `${data.changeSets.length} ${data.changeSets.length === 1 ? 'change' : 'changes'} waiting`,
         ]}
         showThisWeekButton={Boolean(search.week)}
@@ -115,7 +190,7 @@ function App() {
         <div className="compact-actions">
           <button
             type="button"
-            className="action-primary flex-1"
+            className="action-primary"
             disabled={busyKey === 'sync'}
             onClick={() =>
               runAction('sync', async () => {
@@ -128,7 +203,7 @@ function App() {
           </button>
           <button
             type="button"
-            className="action-secondary flex-1"
+            className="action-secondary"
             disabled={busyKey === 'confirm' || data.weekStatus === 'confirmed'}
             onClick={() =>
               runAction('confirm', async () => {
@@ -168,34 +243,37 @@ function App() {
         <article className="ledger-panel rounded-[1.75rem] p-4">
           <div className="section-head">
             <div>
-              <p className="eyebrow">{isCurrentWeek ? 'From today' : 'This week'}</p>
+              <p className="eyebrow">Needs attention first</p>
               <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">
                 Weekly plan
               </h2>
             </div>
             <p className="section-copy">
-              Tap a day to see the homes and who is doing each clean.
+              Overdue days, changed days, and today are shown before the rest of the week.
             </p>
           </div>
 
           <div className="mt-5 space-y-3">
-            {focusGroups.map((group) => (
+            {activeGroups.map(({ group, badges, tone }) => (
               <DayCard
                 key={group.date}
                 group={group}
                 open={openDay === group.date}
                 isToday={group.date === todayIso}
+                badges={badges}
+                tone={tone}
                 onToggle={() => setOpenDay(openDay === group.date ? null : group.date)}
+                onRowSelect={(row) => setEditingAssignment(row)}
               />
             ))}
           </div>
         </article>
 
-        {earlierGroups.length ? (
+        {emptyGroups.length ? (
           <details className="fold-panel">
-            <summary>Earlier this week</summary>
+            <summary>Quiet days</summary>
             <div className="mt-4 space-y-3">
-              {earlierGroups.map((group) => (
+              {emptyGroups.map(({ group }) => (
                 <DayCard
                   key={group.date}
                   group={group}
@@ -207,6 +285,37 @@ function App() {
           </details>
         ) : null}
       </section>
+
+      <QuickEditSheet
+        open={Boolean(editingAssignment)}
+        title={editingAssignment ? `${editingAssignment.apartmentName} · ${formatDayLabel(editingAssignment.taskDate)}` : ''}
+        cleanerId={editCleanerId}
+        notes={editNotes}
+        taskDate={editTaskDate}
+        cleaners={data.cleaners}
+        dateOptions={weekDates(data.weekStart)}
+        saving={busyKey === 'quick-edit'}
+        onClose={() => setEditingAssignment(null)}
+        onCleanerChange={setEditCleanerId}
+        onNotesChange={setEditNotes}
+        onTaskDateChange={setEditTaskDate}
+        onSave={() => {
+          if (!editingAssignment) {
+            return
+          }
+
+          void runAction('quick-edit', async () => {
+            await postJson('/api/schedule/manual-edit', {
+              weekStart: data.weekStart,
+              assignmentId: editingAssignment.id,
+              cleanerId: editCleanerId || null,
+              notes: editNotes,
+              taskDate: editTaskDate,
+            })
+            setEditingAssignment(null)
+          })
+        }}
+      />
     </MobileAppShell>
   )
 }

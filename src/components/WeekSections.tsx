@@ -44,11 +44,11 @@ export function WeekPanelHeader({
   children?: React.ReactNode
 }) {
   return (
-    <section className="compact-hero">
+    <section className="compact-hero sticky-mobile-header">
       <div className="compact-hero-top">
         <div>
           <p className="eyebrow">{eyebrow}</p>
-          <h1 className="display-title mt-2 text-3xl leading-[0.96] text-[var(--ink-strong)]">
+          <h1 className="display-title mt-1.5 text-[2rem] leading-[0.96] text-[var(--ink-strong)]">
             {title}
           </h1>
         </div>
@@ -96,20 +96,31 @@ export function DayCard({
   group,
   open,
   isToday = false,
+  badges = [],
+  tone = 'default',
   onToggle,
+  onRowSelect,
 }: {
   group: ScheduleDayGroup
   open: boolean
   isToday?: boolean
+  badges?: string[]
+  tone?: 'default' | 'attention' | 'changed'
   onToggle: () => void
+  onRowSelect?: (row: ScheduleDayGroup['rows'][number]) => void
 }) {
   return (
-    <article className={`day-card ${isToday ? 'is-today' : ''}`}>
+    <article className={`day-card ${isToday ? 'is-today' : ''} ${tone !== 'default' ? `is-${tone}` : ''}`}>
       <button type="button" className="day-summary" onClick={onToggle}>
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="day-title">{formatDayLabel(group.date)}</p>
             {isToday ? <span className="cleaner-chip today-chip">Today</span> : null}
+            {badges.map((badge) => (
+              <span key={badge} className="cleaner-chip subtle-chip">
+                {badge}
+              </span>
+            ))}
           </div>
           <p className="day-subtitle">
             {group.rows.length === 0
@@ -128,7 +139,12 @@ export function DayCard({
             </p>
           ) : (
             group.rows.map((row) => (
-              <div key={row.id} className="detail-card">
+              <button
+                key={row.id}
+                type="button"
+                className="detail-card detail-action"
+                onClick={() => onRowSelect?.(row)}
+              >
                 <div>
                   <p className="text-sm font-semibold text-[var(--ink-strong)]">
                     {row.apartmentName}
@@ -137,8 +153,11 @@ export function DayCard({
                     {row.notes ?? 'Scheduled clean'}
                   </p>
                 </div>
-                <span className="cleaner-chip">{row.cleanerName ?? 'Unassigned'}</span>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span className="cleaner-chip">{row.cleanerName ?? 'Unassigned'}</span>
+                  {onRowSelect ? <span className="cleaner-chip subtle-chip">Edit</span> : null}
+                </div>
+              </button>
             ))
           )}
         </div>
@@ -295,5 +314,100 @@ export function MessageComposer({
         </button>
       </form>
     </article>
+  )
+}
+
+export function QuickEditSheet({
+  open,
+  title,
+  cleanerId,
+  notes,
+  taskDate,
+  cleaners,
+  dateOptions,
+  saving,
+  onClose,
+  onCleanerChange,
+  onNotesChange,
+  onTaskDateChange,
+  onSave,
+}: {
+  open: boolean
+  title: string
+  cleanerId: string
+  notes: string
+  taskDate: string
+  cleaners: Array<{ id: string; name: string }>
+  dateOptions: string[]
+  saving: boolean
+  onClose: () => void
+  onCleanerChange: (value: string) => void
+  onNotesChange: (value: string) => void
+  onTaskDateChange: (value: string) => void
+  onSave: () => void
+}) {
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div className="sheet-backdrop" role="dialog" aria-modal="true">
+      <div className="sheet-panel">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Quick edit</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{title}</h2>
+          </div>
+          <button type="button" className="action-ghost !w-auto" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-[var(--ink-strong)]">Cleaner</span>
+            <select className="field" value={cleanerId} onChange={(event) => onCleanerChange(event.target.value)}>
+              <option value="">Unassigned</option>
+              {cleaners.map((cleaner) => (
+                <option key={cleaner.id} value={cleaner.id}>
+                  {cleaner.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-[var(--ink-strong)]">Day</span>
+            <select className="field" value={taskDate} onChange={(event) => onTaskDateChange(event.target.value)}>
+              {dateOptions.map((date) => (
+                <option key={date} value={date}>
+                  {formatDayLabel(date)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-[var(--ink-strong)]">Notes</span>
+            <textarea
+              rows={4}
+              className="field"
+              value={notes}
+              onChange={(event) => onNotesChange(event.target.value)}
+              placeholder="Add a helpful note for this clean."
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button type="button" className="action-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="action-primary" disabled={saving} onClick={onSave}>
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

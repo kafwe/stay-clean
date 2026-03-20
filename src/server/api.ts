@@ -7,6 +7,7 @@ import {
   addApartment,
   addCleaner,
   addManualRequest,
+  applyQuickScheduleEdit,
   approveSuggestedChange,
   confirmCurrentWeek,
   createChatSuggestion,
@@ -59,6 +60,14 @@ const subscriptionSchema = z.object({
     p256dh: z.string(),
     auth: z.string(),
   }),
+})
+
+const quickEditSchema = z.object({
+  weekStart: z.string().optional(),
+  assignmentId: z.string().min(1),
+  cleanerId: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  taskDate: z.string().optional(),
 })
 
 app.post(
@@ -181,6 +190,12 @@ app.post(
 
 app.post('/api/schedule/confirm', zValidator('json', weekSchema), async (c) => {
   await confirmCurrentWeek(c.req.valid('json').weekStart)
+  return c.json({ ok: true })
+})
+
+app.post('/api/schedule/manual-edit', zValidator('json', quickEditSchema), async (c) => {
+  const payload = c.req.valid('json')
+  await applyQuickScheduleEdit(payload)
   return c.json({ ok: true })
 })
 

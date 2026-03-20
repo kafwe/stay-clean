@@ -21,6 +21,7 @@ export function SetupWorkspace({
   apartments,
   distanceMatrixPairs,
   apartmentsMissingCoordinates,
+  weekStart,
   busyKey,
   error,
   setBusyKey,
@@ -30,6 +31,7 @@ export function SetupWorkspace({
   apartments: Apartment[]
   distanceMatrixPairs: number
   apartmentsMissingCoordinates: number
+  weekStart: string
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
@@ -49,6 +51,19 @@ export function SetupWorkspace({
   const [locationApartmentId, setLocationApartmentId] = useState('')
   const [locationLatitude, setLocationLatitude] = useState('')
   const [locationLongitude, setLocationLongitude] = useState('')
+  const [activeTool, setActiveTool] = useState<
+    'home' | 'location' | 'cleaner' | 'extra-job' | 'travel' | null
+  >(null)
+  const toolOptions: Array<{
+    value: 'home' | 'location' | 'cleaner' | 'extra-job' | 'travel'
+    label: string
+  }> = [
+    { value: 'home', label: 'Add a home' },
+    { value: 'location', label: 'Update a home location' },
+    { value: 'cleaner', label: 'Add a cleaner' },
+    { value: 'extra-job', label: 'Add an extra job' },
+    { value: 'travel', label: 'Refresh travel times' },
+  ]
 
   async function runAction(key: string, action: () => Promise<void>) {
     setBusyKey(key)
@@ -78,10 +93,22 @@ export function SetupWorkspace({
         </div>
 
         <div className="mt-5 space-y-3">
-          <details className="fold-panel">
-            <summary>Add a home</summary>
+          <div className="tool-grid">
+            {toolOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`tool-tile ${activeTool === value ? 'is-active' : ''}`}
+                onClick={() => setActiveTool(activeTool === value ? null : value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTool === 'home' ? (
             <form
-              className="mt-4 space-y-3"
+              className="fold-panel space-y-3"
               onSubmit={(event) => {
                 event.preventDefault()
                 void runAction('add-apartment', async () => {
@@ -115,12 +142,11 @@ export function SetupWorkspace({
                 {busyKey === 'add-apartment' ? 'Saving...' : 'Add home'}
               </button>
             </form>
-          </details>
+          ) : null}
 
-          <details className="fold-panel">
-            <summary>Update a home location</summary>
+          {activeTool === 'location' ? (
             <form
-              className="mt-4 space-y-3"
+              className="fold-panel space-y-3"
               onSubmit={(event) => {
                 event.preventDefault()
                 void runAction('save-location', async () => {
@@ -152,12 +178,11 @@ export function SetupWorkspace({
                 {busyKey === 'save-location' ? 'Saving...' : 'Save location'}
               </button>
             </form>
-          </details>
+          ) : null}
 
-          <details className="fold-panel">
-            <summary>Add a cleaner</summary>
+          {activeTool === 'cleaner' ? (
             <form
-              className="mt-4 space-y-3"
+              className="fold-panel space-y-3"
               onSubmit={(event) => {
                 event.preventDefault()
                 void runAction('add-cleaner', async () => {
@@ -172,12 +197,11 @@ export function SetupWorkspace({
                 {busyKey === 'add-cleaner' ? 'Saving...' : 'Add cleaner'}
               </button>
             </form>
-          </details>
+          ) : null}
 
-          <details className="fold-panel">
-            <summary>Add an extra job</summary>
+          {activeTool === 'extra-job' ? (
             <form
-              className="mt-4 space-y-3"
+              className="fold-panel space-y-3"
               onSubmit={(event) => {
                 event.preventDefault()
                 void runAction('add-manual', async () => {
@@ -208,11 +232,10 @@ export function SetupWorkspace({
                 {busyKey === 'add-manual' ? 'Saving...' : 'Add extra job'}
               </button>
             </form>
-          </details>
+          ) : null}
 
-          <details className="fold-panel">
-            <summary>Refresh travel times</summary>
-            <div className="mt-4 space-y-3">
+          {activeTool === 'travel' ? (
+            <div className="fold-panel space-y-3">
               <p className="text-sm leading-7 text-[var(--ink-soft)]">
                 {distanceMatrixPairs} saved travel pairs. {apartmentsMissingCoordinates} home
                 {apartmentsMissingCoordinates === 1 ? '' : 's'} still need a location.
@@ -230,7 +253,7 @@ export function SetupWorkspace({
                 {busyKey === 'seed-distance' ? 'Updating...' : 'Refresh travel times'}
               </button>
             </div>
-          </details>
+          ) : null}
         </div>
       </article>
 
@@ -244,7 +267,7 @@ export function SetupWorkspace({
             <p className="eyebrow">Need the weekly view?</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Back to the plan</h2>
           </div>
-          <Link to="/" className="action-secondary no-underline">
+          <Link to="/" search={{ week: weekStart }} className="action-secondary no-underline">
             Open week
           </Link>
         </div>

@@ -1,16 +1,18 @@
-import { ClipboardList, House, MessageSquareText, Settings2 } from 'lucide-react'
+import { ClipboardList, House, Settings2 } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 
-type MobileTab = 'week' | 'changes' | 'message' | 'more'
+type MobileTab = 'week' | 'changes' | 'more' | null
 
 export function MobileAppShell({
   children,
   activeTab,
   weekStart,
+  floatingAction,
 }: {
   children: React.ReactNode
   activeTab: MobileTab
   weekStart: string
+  floatingAction?: React.ReactNode
 }) {
   return (
     <main className="mobile-shell">
@@ -18,6 +20,8 @@ export function MobileAppShell({
         <div className="mobile-shell-scroll">
           <div className="mobile-shell-content">{children}</div>
         </div>
+
+        {floatingAction ? <div className="mobile-shell-fab">{floatingAction}</div> : null}
 
         <nav className="bottom-nav" aria-label="Main">
           <Link
@@ -37,15 +41,8 @@ export function MobileAppShell({
             <span>Changes</span>
           </Link>
           <Link
-            to="/message"
-            search={{ week: weekStart }}
-            className={`bottom-nav-link ${activeTab === 'message' ? 'is-active' : ''}`}
-          >
-            <MessageSquareText size={18} />
-            <span>Message</span>
-          </Link>
-          <Link
             to="/setup"
+            search={{ week: weekStart }}
             className={`bottom-nav-link ${activeTab === 'more' ? 'is-active' : ''}`}
           >
             <Settings2 size={18} />

@@ -6,10 +6,12 @@ import { PwaClient } from '#/components/PwaClient'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { SetupWorkspace } from '#/components/SetupWorkspace'
 import { WeekPanelHeader } from '#/components/WeekSections'
-import { loadDashboard, postJson } from '#/lib/dashboard-page'
+import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 
 export const Route = createFileRoute('/setup')({
-  loader: () => loadDashboard({ data: {} }),
+  validateSearch: weekSearchSchema,
+  loaderDeps: ({ search }) => ({ weekStart: search.week }),
+  loader: ({ deps }) => loadDashboard({ data: { weekStart: deps.weekStart } }),
   component: SetupRoute,
 })
 
@@ -109,7 +111,7 @@ function SetupRoute() {
                   Return to the weekly plan and keep working from there.
                 </p>
               </div>
-              <Link to="/" className="action-secondary no-underline">
+              <Link to="/" search={{ week: data.weekStart }} className="action-secondary no-underline">
                 Open week
               </Link>
             </div>
@@ -141,6 +143,7 @@ function SetupRoute() {
           apartments={data.apartments}
           distanceMatrixPairs={data.distanceMatrixPairs}
           apartmentsMissingCoordinates={data.apartmentsMissingCoordinates}
+          weekStart={data.weekStart}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}

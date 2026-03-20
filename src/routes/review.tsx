@@ -1,4 +1,5 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { PenSquare } from 'lucide-react'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
@@ -78,7 +79,16 @@ function ReviewRoute() {
   }
 
   return (
-    <MobileAppShell activeTab="changes" weekStart={data.weekStart}>
+    <MobileAppShell
+      activeTab="changes"
+      weekStart={data.weekStart}
+      floatingAction={
+        <Link to="/message" search={{ week: data.weekStart }} className="floating-action no-underline">
+          <PenSquare size={18} />
+          Ask for a change
+        </Link>
+      }
+    >
       <WeekPanelHeader
         eyebrow="Changes for this week"
         title={data.weekLabel}

@@ -33,7 +33,7 @@ import {
 import { syncICalFeeds } from './ical'
 import { sendPushToManager } from './push'
 import { buildDayGroups, buildScheduleSummary, buildWeekTasks, diffAssignments, generateAssignments } from './scheduler'
-import type { DashboardData } from './types'
+import type { CleanTask, DashboardData, ScheduleAssignment } from './types'
 
 async function isAuthenticated() {
   return verifySessionToken(getCookie(SESSION_COOKIE_NAME), env.SESSION_SECRET)
@@ -304,6 +304,112 @@ export async function createChatSuggestion(message: string, weekStartOverride?: 
       assignments: normalizedAssignments,
       changes,
     },
+  })
+}
+
+function rebuildTasksFromAssignments(assignments: ScheduleAssignment[]): CleanTask[] {
+  return assignments.map((assignment) => ({
+    id: assignment.cleanTaskId,
+    apartmentId: assignment.apartmentId,
+    apartmentName: assignment.apartmentName,
+    buildingId: assignment.buildingId,
+    taskDate: assignment.taskDate,
+    taskType: assignment.taskType,
+    notes: assignment.notes,
+    requiresReview: assignment.taskType === 'midstay_review',
+  }))
+}
+
+function resortAssignments(assignments: ScheduleAssignment[]) {
+  const sorted = [...assignments].sort((left, right) => {
+    if (left.taskDate === right.taskDate) {
+      return left.apartmentName.localeCompare(right.apartmentName)
+    }
+
+    return left.taskDate.localeCompare(right.taskDate)
+  })
+
+  const dayCounts = new Map<string, number>()
+
+  return sorted.map((assignment) => {
+    const currentCount = dayCounts.get(assignment.taskDate) ?? 0
+    dayCounts.set(assignment.taskDate, currentCount + 1)
+
+    return {
+      ...assignment,
+      sortOrder: currentCount,
+    }
+  })
+}
+
+export async function applyQuickScheduleEdit(input: {
+  weekStart?: string
+  assignmentId: string
+  cleanerId?: string | null
+  notes?: string | null
+  taskDate?: string
+}) {
+  const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
+  const run = await ensureWeekPlan(weekStartIso)
+
+  if (!run) {
+    throw new Error('No week plan is available yet')
+  }
+
+  const [assignments, cleaners] = await Promise.all([getWeekAssignments(run.id), listCleaners()])
+  const cleanerById = new Map(cleaners.map((cleaner) => [cleaner.id, cleaner]))
+  const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
+
+  if (!currentAssignment) {
+    throw new Error('The selected job could not be found')
+  }
+
+  const nextAssignments = resortAssignments(
+    assignments.map((assignment) => {
+      if (assignment.id !== input.assignmentId) {
+        return assignment
+      }
+
+      const cleaner =
+        input.cleanerId === undefined
+          ? assignment.cleanerId
+            ? cleanerById.get(assignment.cleanerId) ?? null
+            : null
+          : input.cleanerId
+            ? cleanerById.get(input.cleanerId) ?? null
+            : null
+
+      return {
+        ...assignment,
+        cleanerId: cleaner?.id ?? null,
+        cleanerName: cleaner?.name ?? null,
+        notes: input.notes ?? assignment.notes,
+        taskDate: input.taskDate ?? assignment.taskDate,
+        source: 'manual' as const,
+      }
+    }),
+  )
+
+  const changes = diffAssignments(assignments, nextAssignments)
+
+  const notesChanged = (input.notes ?? currentAssignment.notes) !== currentAssignment.notes
+  const dateChanged = (input.taskDate ?? currentAssignment.taskDate) !== currentAssignment.taskDate
+  const cleanerChanged =
+    (input.cleanerId === undefined ? currentAssignment.cleanerId : input.cleanerId ?? null) !==
+    currentAssignment.cleanerId
+
+  if (!changes.length && !notesChanged && !dateChanged && !cleanerChanged) {
+    throw new Error('Nothing changed')
+  }
+
+  const summary = buildScheduleSummary(nextAssignments)
+
+  await saveWeekPlan({
+    weekStart: weekStartIso,
+    status: run.status,
+    summary,
+    tasks: rebuildTasksFromAssignments(nextAssignments),
+    assignments: nextAssignments,
   })
 }
 

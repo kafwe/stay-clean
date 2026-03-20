@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
@@ -79,7 +79,7 @@ function MessageRoute() {
   }
 
   return (
-    <MobileAppShell activeTab="message" weekStart={data.weekStart}>
+    <MobileAppShell activeTab={null} weekStart={data.weekStart}>
       <WeekPanelHeader
         eyebrow="Message about this week"
         title={data.weekLabel}
@@ -92,7 +92,11 @@ function MessageRoute() {
         onPrevious={() => moveWeek(-1)}
         onCurrent={jumpToCurrentWeek}
         onNext={() => moveWeek(1)}
-      />
+      >
+        <Link to="/" search={{ week: data.weekStart }} className="action-secondary no-underline">
+          Back to the week
+        </Link>
+      </WeekPanelHeader>
 
       {error ? <section className="error-banner">{error}</section> : null}
 
