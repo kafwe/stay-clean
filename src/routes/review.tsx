@@ -149,6 +149,8 @@ function ReviewRoute() {
         weekLabel={data.weekLabel}
         message={chatMessage}
         busy={busyKey === 'chat'}
+        dayGroups={data.dayGroups}
+        changeSets={data.changeSets}
         onChange={setChatMessage}
         onClose={() => {
           if (busyKey === 'chat') {

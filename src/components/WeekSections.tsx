@@ -101,29 +101,44 @@ export function DayCard({
   onToggle: () => void
   onRowSelect?: (row: ScheduleDayGroup['rows'][number]) => void
 }) {
+  const alwaysOpen = group.rows.length === 1
+  const isOpen = alwaysOpen || open
+
+  const summaryContent = (
+    <>
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="day-title">{formatDayLabel(group.date)}</p>
+          {isToday ? <span className="cleaner-chip today-chip">Today</span> : null}
+          {badges.map((badge) => (
+            <span key={badge} className="cleaner-chip subtle-chip">
+              {badge}
+            </span>
+          ))}
+        </div>
+        <p className="day-subtitle">
+          {group.rows.length === 0
+            ? 'Nothing booked'
+            : `${group.rows.length} ${group.rows.length === 1 ? 'job' : 'jobs'}`}
+        </p>
+      </div>
+      {alwaysOpen ? null : <span className="cleaner-chip">{open ? 'Hide' : 'Open'}</span>}
+    </>
+  )
+
   return (
     <article className={`day-card ${isToday ? 'is-today' : ''} ${tone !== 'default' ? `is-${tone}` : ''}`}>
-      <button type="button" className="day-summary" onClick={onToggle}>
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="day-title">{formatDayLabel(group.date)}</p>
-            {isToday ? <span className="cleaner-chip today-chip">Today</span> : null}
-            {badges.map((badge) => (
-              <span key={badge} className="cleaner-chip subtle-chip">
-                {badge}
-              </span>
-            ))}
-          </div>
-          <p className="day-subtitle">
-            {group.rows.length === 0
-              ? 'Nothing booked'
-              : `${group.rows.length} ${group.rows.length === 1 ? 'job' : 'jobs'}`}
-          </p>
+      {alwaysOpen ? (
+        <div className="day-summary day-summary-static">
+          {summaryContent}
         </div>
-        <span className="cleaner-chip">{open ? 'Hide' : 'Open'}</span>
-      </button>
+      ) : (
+        <button type="button" className="day-summary" onClick={onToggle}>
+          {summaryContent}
+        </button>
+      )}
 
-      {open ? (
+      {isOpen ? (
         <div className="day-body">
           {group.rows.length === 0 ? (
             <p className="text-sm leading-7 text-[var(--ink-soft)]">
@@ -267,6 +282,8 @@ export function ChangeRequestSheet({
   weekLabel,
   message,
   busy,
+  dayGroups,
+  changeSets,
   onChange,
   onClose,
   onSubmit,
@@ -275,6 +292,8 @@ export function ChangeRequestSheet({
   weekLabel: string
   message: string
   busy: boolean
+  dayGroups: ScheduleDayGroup[]
+  changeSets: ChangeSet[]
   onChange: (value: string) => void
   onClose: () => void
   onSubmit: () => void
@@ -282,6 +301,8 @@ export function ChangeRequestSheet({
   if (!open) {
     return null
   }
+
+  const scheduledDays = dayGroups.filter((group) => group.rows.length > 0)
 
   return (
     <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Ask for a change">
@@ -291,7 +312,7 @@ export function ChangeRequestSheet({
             <p className="eyebrow">Ask for a change</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{weekLabel}</h2>
           </div>
-          <button type="button" className="action-ghost !w-auto" onClick={onClose}>
+          <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
             Close
           </button>
         </div>
@@ -307,6 +328,63 @@ export function ChangeRequestSheet({
             </p>
           </div>
         </div>
+
+        <section className="change-request-context">
+          <div className="change-context-card">
+            <div className="change-context-head">
+              <p className="eyebrow">This week</p>
+              <span className="cleaner-chip subtle-chip">
+                {scheduledDays.length} {scheduledDays.length === 1 ? 'day' : 'days'}
+              </span>
+            </div>
+
+            <div className="change-context-list">
+              {scheduledDays.length ? (
+                scheduledDays.map((group) => (
+                  <div key={group.date} className="change-context-row">
+                    <div>
+                      <p className="change-context-title">{formatDayLabel(group.date)}</p>
+                      <p className="change-context-copy">
+                        {group.rows
+                          .map((row) => `${row.apartmentName} - ${row.cleanerName ?? 'Unassigned'}`)
+                          .join(', ')}
+                      </p>
+                    </div>
+                    <span className="cleaner-chip subtle-chip">
+                      {group.rows.length} {group.rows.length === 1 ? 'job' : 'jobs'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm leading-7 text-[var(--ink-soft)]">
+                  No jobs are scheduled for this week yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {changeSets.length ? (
+            <div className="change-context-card">
+              <div className="change-context-head">
+                <p className="eyebrow">Already waiting</p>
+                <span className="cleaner-chip warning">
+                  {changeSets.length} {changeSets.length === 1 ? 'change' : 'changes'}
+                </span>
+              </div>
+
+              <div className="change-context-list">
+                {changeSets.map((changeSet) => (
+                  <div key={changeSet.id} className="change-context-row">
+                    <div>
+                      <p className="change-context-title">{changeSet.title}</p>
+                      <p className="change-context-copy">{changeSet.summary}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
 
         <form
           className="mt-5 space-y-4"
@@ -377,7 +455,7 @@ export function QuickEditSheet({
             <p className="eyebrow">Quick edit</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{title}</h2>
           </div>
-          <button type="button" className="action-ghost !w-auto" onClick={onClose}>
+          <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
             Close
           </button>
         </div>
