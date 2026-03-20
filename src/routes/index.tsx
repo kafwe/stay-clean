@@ -180,48 +180,66 @@ function App() {
       <WeekPanelHeader
         title={data.weekLabel}
         status={data.weekStatus}
-        summaryItems={[
-          `${jobsLeft} ${jobsLeft === 1 ? 'job' : 'jobs'} to run`,
-          `${data.changeSets.length} ${data.changeSets.length === 1 ? 'change' : 'changes'} waiting`,
-        ]}
         showThisWeekButton={Boolean(search.week)}
         onPrevious={() => moveWeek(-1)}
         onCurrent={jumpToCurrentWeek}
         onNext={() => moveWeek(1)}
       >
-        <div className="compact-actions">
-          <button
-            type="button"
-            className="action-primary"
-            disabled={busyKey === 'sync'}
-            onClick={() =>
-              runAction('sync', async () => {
-                await postJson('/api/system/run-sync', { weekStart: data.weekStart })
-              })
-            }
-          >
-            <RefreshCcw size={16} />
-            {busyKey === 'sync' ? 'Checking...' : 'Check for updates'}
-          </button>
-          <button
-            type="button"
-            className="action-secondary"
-            disabled={busyKey === 'confirm' || data.weekStatus === 'confirmed'}
-            onClick={() =>
-              runAction('confirm', async () => {
-                await postJson('/api/schedule/confirm', { weekStart: data.weekStart })
-              })
-            }
-          >
-            <CalendarCheck2 size={16} />
-            {data.weekStatus === 'confirmed'
-              ? 'Week locked in'
-              : busyKey === 'confirm'
-                ? 'Saving...'
-                : 'Lock in this week'}
-          </button>
-        </div>
+        <article className="overview-card">
+          <div className="overview-copy">
+            <p className="eyebrow">This week at a glance</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
+              {jobsLeft} {jobsLeft === 1 ? 'job' : 'jobs'} to run
+            </h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
+              {data.changeSets.length
+                ? `${data.changeSets.length} suggested ${data.changeSets.length === 1 ? 'change is' : 'changes are'} waiting for your approval.`
+                : 'No suggested changes are waiting right now.'}
+            </p>
+          </div>
 
+          <div className="overview-actions">
+            <button
+              type="button"
+              className="action-primary"
+              disabled={busyKey === 'sync'}
+              onClick={() =>
+                runAction('sync', async () => {
+                  await postJson('/api/system/run-sync', { weekStart: data.weekStart })
+                })
+              }
+            >
+              <RefreshCcw size={16} />
+              {busyKey === 'sync' ? 'Checking...' : 'Check for updates'}
+            </button>
+            <button
+              type="button"
+              className="action-secondary"
+              disabled={busyKey === 'confirm' || data.weekStatus === 'confirmed'}
+              onClick={() =>
+                runAction('confirm', async () => {
+                  await postJson('/api/schedule/confirm', { weekStart: data.weekStart })
+                })
+              }
+            >
+              <CalendarCheck2 size={16} />
+              {data.weekStatus === 'confirmed'
+                ? 'Week locked in'
+                : busyKey === 'confirm'
+                  ? 'Saving...'
+                  : 'Lock in this week'}
+            </button>
+          </div>
+        </article>
+      </WeekPanelHeader>
+
+      {error ? (
+        <section className="error-banner">
+          {error}
+        </section>
+      ) : null}
+
+      <section className="content-stack">
         {data.changeSets.length || data.manualReviews.length ? (
           <Link to="/review" search={{ week: data.weekStart }} className="review-callout no-underline">
             <div>
@@ -233,15 +251,7 @@ function App() {
             <span className="cleaner-chip">Open changes</span>
           </Link>
         ) : null}
-      </WeekPanelHeader>
 
-      {error ? (
-        <section className="error-banner">
-          {error}
-        </section>
-      ) : null}
-
-      <section className="content-stack">
         <article className="ledger-panel rounded-[1.75rem] p-4">
           <div className="section-head">
             <div>

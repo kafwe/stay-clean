@@ -66,14 +66,25 @@ function SetupRoute() {
         eyebrow="Support tools"
         title="More"
         status={data.weekStatus}
-        summaryItems={['Phone reminders', 'Homes and team']}
         showStatus={false}
         showWeekControls={false}
         showThisWeekButton={false}
         onPrevious={() => {}}
         onCurrent={() => {}}
         onNext={() => {}}
-      />
+      >
+        <article className="overview-card">
+          <div className="overview-copy">
+            <p className="eyebrow">Support tools</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
+              Use these only when needed
+            </h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
+              The weekly plan stays in the main view. This screen is for reminders, sharing, and setup.
+            </p>
+          </div>
+        </article>
+      </WeekPanelHeader>
 
       <section className="content-stack">
         <article className="ledger-panel rounded-[1.75rem] p-5">

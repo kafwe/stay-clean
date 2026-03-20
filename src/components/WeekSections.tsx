@@ -22,7 +22,6 @@ export function WeekPanelHeader({
   eyebrow = 'Week in view',
   title,
   status,
-  summaryItems,
   showStatus = true,
   showWeekControls = true,
   showThisWeekButton,
@@ -34,7 +33,6 @@ export function WeekPanelHeader({
   eyebrow?: string
   title: string
   status: ScheduleStatus | null
-  summaryItems: string[]
   showStatus?: boolean
   showWeekControls?: boolean
   showThisWeekButton: boolean
@@ -44,50 +42,44 @@ export function WeekPanelHeader({
   children?: React.ReactNode
 }) {
   return (
-    <section className="compact-hero sticky-mobile-header">
-      <div className="compact-hero-top">
-        <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="display-title mt-1.5 text-[2rem] leading-[0.96] text-[var(--ink-strong)]">
+    <section className="space-y-3">
+      <div className="compact-hero sticky-mobile-header">
+        <div className="compact-hero-top">
+          <div>
+            <p className="eyebrow">{eyebrow}</p>
+            <h1 className="display-title mt-1 text-[1.55rem] leading-[0.96] text-[var(--ink-strong)]">
             {title}
           </h1>
         </div>
-        {showStatus ? <span className="status-pill">{getWeekStatusLabel(status)}</span> : null}
-      </div>
-
-      <div className="summary-strip">
-        {summaryItems.map((item) => (
-          <span key={item} className="summary-chip">
-            {item}
-          </span>
-        ))}
-      </div>
-
-      {showWeekControls ? (
-        <div className="compact-switcher">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onPrevious}
-            aria-label="Earlier week"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            type="button"
-            className="action-ghost flex-1"
-            onClick={onCurrent}
-            disabled={!showThisWeekButton}
-          >
-            This week
-          </button>
-          <button type="button" className="icon-button" onClick={onNext} aria-label="Later week">
-            <ChevronRight size={18} />
-          </button>
+          {showStatus ? <span className="status-pill status-pill-compact">{getWeekStatusLabel(status)}</span> : null}
         </div>
-      ) : null}
 
-      {children ? <div className="mt-3 space-y-3">{children}</div> : null}
+        {showWeekControls ? (
+          <div className="compact-switcher">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={onPrevious}
+              aria-label="Earlier week"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              className="action-ghost flex-1"
+              onClick={onCurrent}
+              disabled={!showThisWeekButton}
+            >
+              This week
+            </button>
+            <button type="button" className="icon-button" onClick={onNext} aria-label="Later week">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {children ? <div className="week-header-body space-y-3">{children}</div> : null}
     </section>
   )
 }

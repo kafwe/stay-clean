@@ -95,15 +95,23 @@ function ReviewRoute() {
         eyebrow="Changes for this week"
         title={data.weekLabel}
         status={data.weekStatus}
-        summaryItems={[
-          `${data.changeSets.length} ${data.changeSets.length === 1 ? 'change' : 'changes'} waiting`,
-          `${data.manualReviews.length} ${data.manualReviews.length === 1 ? 'stay' : 'stays'} to check`,
-        ]}
         showThisWeekButton={Boolean(search.week)}
         onPrevious={() => moveWeek(-1)}
         onCurrent={jumpToCurrentWeek}
         onNext={() => moveWeek(1)}
-      />
+      >
+        <article className="overview-card">
+          <div className="overview-copy">
+            <p className="eyebrow">What needs review</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
+              {data.changeSets.length} {data.changeSets.length === 1 ? 'change' : 'changes'} waiting
+            </h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
+              {data.manualReviews.length} {data.manualReviews.length === 1 ? 'long stay also needs' : 'long stays also need'} a quick check.
+            </p>
+          </div>
+        </article>
+      </WeekPanelHeader>
 
       {error ? <section className="error-banner">{error}</section> : null}
 

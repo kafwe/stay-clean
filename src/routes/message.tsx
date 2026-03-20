@@ -89,18 +89,27 @@ function MessageRoute() {
         eyebrow="Message about this week"
         title={data.weekLabel}
         status={data.weekStatus}
-        summaryItems={[
-          'Describe the change you want',
-          'You review it before anything changes',
-        ]}
         showThisWeekButton={Boolean(search.week)}
         onPrevious={() => moveWeek(-1)}
         onCurrent={jumpToCurrentWeek}
         onNext={() => moveWeek(1)}
       >
-        <Link to="/" search={{ week: data.weekStart }} className="action-secondary no-underline">
-          Back to the week
-        </Link>
+        <article className="overview-card">
+          <div className="overview-copy">
+            <p className="eyebrow">Before you send</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
+              Ask in plain language
+            </h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
+              We will prepare a suggestion for you to review before anything changes.
+            </p>
+          </div>
+          <div className="overview-actions">
+            <Link to="/" search={{ week: data.weekStart }} className="action-secondary no-underline">
+              Back to the week
+            </Link>
+          </div>
+        </article>
       </WeekPanelHeader>
 
       {error ? <section className="error-banner">{error}</section> : null}
