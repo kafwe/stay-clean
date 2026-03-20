@@ -143,7 +143,7 @@ export function PdfExportButton({
 
   return (
     <button type="button" onClick={exportPdf} disabled={busy} className="action-secondary">
-      {busy ? 'Preparing PDF...' : 'Export / Share PDF'}
+      {busy ? 'Preparing...' : 'Share this week'}
     </button>
   )
 }

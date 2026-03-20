@@ -119,7 +119,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
       dayGroups: [],
       changeSets: [],
       manualReviews: [],
-      syncSummary: 'Sign in to see the current week.',
+      syncSummary: 'Sign in to see this week.',
       distanceMatrixPairs: 0,
       apartmentsMissingCoordinates: 0,
       emptyStateReason: null,
@@ -153,15 +153,15 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
     changeSets: changeSets.filter((changeSet) => changeSet.status === 'pending'),
     manualReviews,
     syncSummary: lastSync
-      ? `Last sync ${formatDistanceToNow(new Date(lastSync.createdAt), { addSuffix: true })}`
-      : 'No iCal sync has run yet.',
+      ? `Bookings checked ${formatDistanceToNow(new Date(lastSync.createdAt), { addSuffix: true })}`
+      : 'Bookings have not been checked yet.',
     distanceMatrixPairs,
     apartmentsMissingCoordinates: apartments.filter(
       (apartment) => apartment.latitude === null || apartment.longitude === null,
     ).length,
     emptyStateReason:
       apartments.length === 0
-        ? 'Add apartments and cleaner names to generate the first draft week.'
+        ? 'Add homes and cleaner names to build the first week.'
         : null,
   }
 }

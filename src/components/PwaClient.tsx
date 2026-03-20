@@ -82,7 +82,7 @@ export function PwaClient({
         disabled={!ready || pushState === 'enabled' || pushState === 'unsupported'}
         className="action-secondary disabled:opacity-50"
       >
-        {pushState === 'enabled' ? 'Notifications enabled' : 'Enable notifications'}
+        {pushState === 'enabled' ? 'Phone reminders on' : 'Turn on phone reminders'}
       </button>
       {error ? <p className="text-sm text-[var(--accent-deep)]">{error}</p> : null}
     </div>
