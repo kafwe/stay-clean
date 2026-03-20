@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS apartments (
   name TEXT NOT NULL,
   building_id TEXT NOT NULL,
   address TEXT NOT NULL,
+  latitude REAL,
+  longitude REAL,
   ical_url TEXT,
   is_external INTEGER NOT NULL DEFAULT 0,
   notes TEXT,

@@ -13,6 +13,8 @@ import {
   getDashboardSnapshot,
   regenerateWeekFromICal,
   rejectSuggestedChange,
+  saveApartmentCoordinates,
+  seedDistanceMatrix,
 } from '#/lib/dashboard'
 import {
   createSessionToken,
@@ -28,7 +30,13 @@ const apartmentSchema = z.object({
   name: z.string().min(2),
   buildingId: z.string().min(1),
   address: z.string().min(4),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
   icalUrl: z.string().url().optional().or(z.literal('')).optional(),
+})
+
+const weekSchema = z.object({
+  weekStart: z.string().optional(),
 })
 
 const cleanerSchema = z.object({
@@ -95,17 +103,39 @@ app.use('/api/*', async (c, next) => {
 })
 
 app.get('/api/dashboard', async (c) => {
-  return c.json(await getDashboardSnapshot())
+  return c.json(await getDashboardSnapshot(c.req.query('weekStart') || undefined))
 })
 
 app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c) => {
   const payload = c.req.valid('json')
   await addApartment({
     ...payload,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
     icalUrl: payload.icalUrl || null,
   })
   return c.json({ ok: true })
 })
+
+app.post(
+  '/api/setup/apartments/:id/location',
+  zValidator(
+    'json',
+    z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+    }),
+  ),
+  async (c) => {
+    const payload = c.req.valid('json')
+    await saveApartmentCoordinates({
+      apartmentId: c.req.param('id'),
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+    })
+    return c.json({ ok: true })
+  },
+)
 
 app.post('/api/setup/cleaners', zValidator('json', cleanerSchema), async (c) => {
   await addCleaner(c.req.valid('json'))
@@ -139,16 +169,18 @@ app.post(
     'json',
     z.object({
       message: z.string().min(4),
+      weekStart: z.string().optional(),
     }),
   ),
   async (c) => {
-    await createChatSuggestion(c.req.valid('json').message)
+    const payload = c.req.valid('json')
+    await createChatSuggestion(payload.message, payload.weekStart)
     return c.json({ ok: true })
   },
 )
 
-app.post('/api/schedule/confirm', async (c) => {
-  await confirmCurrentWeek()
+app.post('/api/schedule/confirm', zValidator('json', weekSchema), async (c) => {
+  await confirmCurrentWeek(c.req.valid('json').weekStart)
   return c.json({ ok: true })
 })
 
@@ -162,8 +194,13 @@ app.post('/api/suggestions/:id/reject', async (c) => {
   return c.json({ ok: true })
 })
 
-app.post('/api/system/run-sync', async (c) => {
-  await regenerateWeekFromICal('manual')
+app.post('/api/setup/distance-matrix/seed', async (c) => {
+  await seedDistanceMatrix()
+  return c.json({ ok: true })
+})
+
+app.post('/api/system/run-sync', zValidator('json', weekSchema), async (c) => {
+  await regenerateWeekFromICal('manual', c.req.valid('json').weekStart)
   return c.json({ ok: true })
 })
 

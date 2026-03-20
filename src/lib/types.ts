@@ -8,6 +8,8 @@ export interface Apartment {
   name: string
   buildingId: string
   address: string
+  latitude: number | null
+  longitude: number | null
   icalUrl: string | null
   isExternal: boolean
   notes: string | null
@@ -146,11 +148,17 @@ export interface DashboardData {
   changeSets: ChangeSet[]
   manualReviews: ManualReviewItem[]
   syncSummary: string
+  distanceMatrixPairs: number
+  apartmentsMissingCoordinates: number
   emptyStateReason: string | null
 }
 
 export interface ChatOperation {
-  action: 'reassign_day' | 'reassign_apartment' | 'unassign_day'
+  action:
+    | 'reassign_day'
+    | 'reassign_apartment'
+    | 'set_day_off'
+    | 'assign_unassigned_day'
   weekday?: number
   date?: string
   apartmentName?: string

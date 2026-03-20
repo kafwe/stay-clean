@@ -24,6 +24,10 @@ export function getNextWeekStartIso(input = new Date()) {
   return toIsoDate(addDays(startOfWeek(input, { weekStartsOn: 1 }), 7))
 }
 
+export function shiftWeek(weekStartIso: string, amount: number) {
+  return toIsoDate(addDays(parseISO(weekStartIso), amount * 7))
+}
+
 export function toIsoDate(date: Date) {
   return format(date, 'yyyy-MM-dd')
 }

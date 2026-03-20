@@ -3,8 +3,9 @@ import { getCookie } from '@tanstack/react-start/server'
 import { formatDistanceToNow } from 'date-fns'
 import { verifySessionToken, SESSION_COOKIE_NAME } from './auth'
 import { generateChatProposal, applyChatProposal } from './ai'
-import { formatWeekLabel, getWeekRange, getNextWeekStartIso } from './date'
+import { formatWeekLabel, getNextWeekStartIso, getWeekRange } from './date'
 import {
+  countDistancePairs,
   createChangeSet,
   createApartment,
   createCleaner,
@@ -24,7 +25,9 @@ import {
   listManualRequests,
   markChangeSet,
   recordSyncEvent,
+  replaceDistanceMatrix,
   saveWeekPlan,
+  updateApartmentCoordinates,
   updateRunStatus,
 } from './db'
 import { syncICalFeeds } from './ical'
@@ -34,6 +37,28 @@ import type { DashboardData } from './types'
 
 async function isAuthenticated() {
   return verifySessionToken(getCookie(SESSION_COOKIE_NAME), env.SESSION_SECRET)
+}
+
+function estimateTravelMinutes(input: {
+  sameBuilding: boolean
+  from: { latitude: number; longitude: number }
+  to: { latitude: number; longitude: number }
+}) {
+  if (input.sameBuilding) {
+    return 4
+  }
+
+  const toRadians = (value: number) => (value * Math.PI) / 180
+  const latDistance = toRadians(input.to.latitude - input.from.latitude)
+  const lngDistance = toRadians(input.to.longitude - input.from.longitude)
+  const a =
+    Math.sin(latDistance / 2) * Math.sin(latDistance / 2) +
+    Math.cos(toRadians(input.from.latitude)) *
+      Math.cos(toRadians(input.to.latitude)) *
+      Math.sin(lngDistance / 2) *
+      Math.sin(lngDistance / 2)
+  const distanceKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.max(6, Math.round((distanceKm / 28) * 60 + 6))
 }
 
 async function ensureWeekPlan(weekStart: string) {
@@ -75,9 +100,10 @@ async function ensureWeekPlan(weekStart: string) {
   return getWeekRun(weekStart)
 }
 
-export async function getDashboardSnapshot(): Promise<DashboardData> {
+export async function getDashboardSnapshot(weekStartOverride?: string): Promise<DashboardData> {
   const authenticated = await isAuthenticated()
-  const { weekStartIso, weekEndIso } = getWeekRange()
+  const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
+  const { weekEndIso } = getWeekRange(new Date(weekStartIso))
 
   if (!authenticated) {
     return {
@@ -94,11 +120,17 @@ export async function getDashboardSnapshot(): Promise<DashboardData> {
       changeSets: [],
       manualReviews: [],
       syncSummary: 'Sign in to see the current week.',
+      distanceMatrixPairs: 0,
+      apartmentsMissingCoordinates: 0,
       emptyStateReason: null,
     }
   }
 
-  const [apartments, cleaners] = await Promise.all([listApartments(), listCleaners()])
+  const [apartments, cleaners, distanceMatrixPairs] = await Promise.all([
+    listApartments(),
+    listCleaners(),
+    countDistancePairs(),
+  ])
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
   const [assignments, changeSets, manualReviews, lastSync] = await Promise.all([
     run ? getWeekAssignments(run.id) : Promise.resolve([]),
@@ -123,6 +155,10 @@ export async function getDashboardSnapshot(): Promise<DashboardData> {
     syncSummary: lastSync
       ? `Last sync ${formatDistanceToNow(new Date(lastSync.createdAt), { addSuffix: true })}`
       : 'No iCal sync has run yet.',
+    distanceMatrixPairs,
+    apartmentsMissingCoordinates: apartments.filter(
+      (apartment) => apartment.latitude === null || apartment.longitude === null,
+    ).length,
     emptyStateReason:
       apartments.length === 0
         ? 'Add apartments and cleaner names to generate the first draft week.'
@@ -134,9 +170,19 @@ export async function addApartment(input: {
   name: string
   buildingId: string
   address: string
+  latitude?: number | null
+  longitude?: number | null
   icalUrl?: string | null
 }) {
   await createApartment(input)
+}
+
+export async function saveApartmentCoordinates(input: {
+  apartmentId: string
+  latitude: number
+  longitude: number
+}) {
+  await updateApartmentCoordinates(input)
 }
 
 export async function addCleaner(input: { name: string; colorHex?: string | null }) {
@@ -154,8 +200,8 @@ export async function addManualRequest(input: {
   await createManualCleanRequest(input)
 }
 
-export async function confirmCurrentWeek() {
-  const { weekStartIso } = getWeekRange()
+export async function confirmCurrentWeek(weekStartOverride?: string) {
+  const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
   await updateRunStatus(weekStartIso, 'confirmed')
 }
 
@@ -195,17 +241,21 @@ export async function approveSuggestedChange(changeSetId: string) {
   await updateRunStatus(weekStart, 'confirmed', changeSet.summary)
 }
 
-export async function createChatSuggestion(message: string) {
-  const { weekStartIso } = getWeekRange()
+export async function createChatSuggestion(message: string, weekStartOverride?: string) {
+  const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
   const run = await ensureWeekPlan(weekStartIso)
   if (!run) {
     throw new Error('No week plan is available yet')
   }
 
   const assignments = await getWeekAssignments(run.id)
+  const [cleaners, apartments] = await Promise.all([listCleaners(), listApartments()])
   const proposal = await generateChatProposal({
     message,
     currentAssignments: assignments,
+    cleaners: cleaners.map((cleaner) => cleaner.name),
+    apartments: apartments.map((apartment) => apartment.name),
+    weekStart: weekStartIso,
   })
 
   const nextAssignments = applyChatProposal({
@@ -220,8 +270,6 @@ export async function createChatSuggestion(message: string) {
       cleanerName: cleaner,
     }
   })
-
-  const cleaners = await listCleaners()
   const cleanerByName = new Map(cleaners.map((cleaner) => [cleaner.name.toLowerCase(), cleaner]))
   const normalizedAssignments = nextAssignments.map((assignment) => ({
     ...assignment,
@@ -256,6 +304,47 @@ export async function createChatSuggestion(message: string) {
       assignments: normalizedAssignments,
       changes,
     },
+  })
+}
+
+export async function seedDistanceMatrix() {
+  const apartments = (await listApartments()).filter(
+    (apartment) => apartment.latitude !== null && apartment.longitude !== null,
+  )
+
+  if (apartments.length < 2) {
+    throw new Error('Add coordinates to at least two apartments before seeding the matrix')
+  }
+
+  const entries: Array<{ fromApartmentId: string; toApartmentId: string; minutes: number }> = []
+
+  for (const fromApartment of apartments) {
+    for (const toApartment of apartments) {
+      const minutes = estimateTravelMinutes({
+        sameBuilding: fromApartment.buildingId === toApartment.buildingId,
+        from: {
+          latitude: fromApartment.latitude!,
+          longitude: fromApartment.longitude!,
+        },
+        to: {
+          latitude: toApartment.latitude!,
+          longitude: toApartment.longitude!,
+        },
+      })
+
+      entries.push({
+        fromApartmentId: fromApartment.id,
+        toApartmentId: toApartment.id,
+        minutes,
+      })
+    }
+  }
+
+  await replaceDistanceMatrix(entries)
+  await recordSyncEvent('distance-matrix-seed', 'ok', {
+    apartments: apartments.length,
+    pairs: entries.length,
+    mode: 'estimated-haversine',
   })
 }
 

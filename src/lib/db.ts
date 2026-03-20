@@ -57,11 +57,13 @@ export async function listApartments(): Promise<Apartment[]> {
     name: string
     building_id: string
     address: string
+    latitude: number | null
+    longitude: number | null
     ical_url: string | null
     is_external: number
     notes: string | null
   }>(
-    `SELECT id, name, building_id, address, ical_url, is_external, notes
+    `SELECT id, name, building_id, address, latitude, longitude, ical_url, is_external, notes
      FROM apartments
      ORDER BY name ASC`,
   )
@@ -71,6 +73,8 @@ export async function listApartments(): Promise<Apartment[]> {
     name: row.name,
     buildingId: row.building_id,
     address: row.address,
+    latitude: row.latitude,
+    longitude: row.longitude,
     icalUrl: row.ical_url,
     isExternal: bool(row.is_external),
     notes: row.notes,
@@ -428,25 +432,43 @@ export async function createApartment(input: {
   name: string
   buildingId: string
   address: string
+  latitude?: number | null
+  longitude?: number | null
   icalUrl?: string | null
   isExternal?: boolean
   notes?: string | null
 }) {
   const id = crypto.randomUUID()
   await run(
-    `INSERT INTO apartments (id, name, building_id, address, ical_url, is_external, notes, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    `INSERT INTO apartments
+      (id, name, building_id, address, latitude, longitude, ical_url, is_external, notes, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     [
       id,
       input.name,
       input.buildingId,
       input.address,
+      input.latitude ?? null,
+      input.longitude ?? null,
       input.icalUrl ?? null,
       input.isExternal ? 1 : 0,
       input.notes ?? null,
     ],
   )
   return id
+}
+
+export async function updateApartmentCoordinates(input: {
+  apartmentId: string
+  latitude: number
+  longitude: number
+}) {
+  await run(
+    `UPDATE apartments
+     SET latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [input.latitude, input.longitude, input.apartmentId],
+  )
 }
 
 export async function createCleaner(input: { name: string; colorHex?: string | null }) {
@@ -523,6 +545,33 @@ export async function listPushSubscriptions() {
     `SELECT endpoint, p256dh, auth
      FROM push_subscriptions`,
   )
+}
+
+export async function countDistancePairs() {
+  const row = await first<{ total: number }>(
+    `SELECT COUNT(*) AS total
+     FROM distance_matrix`,
+  )
+  return row?.total ?? 0
+}
+
+export async function replaceDistanceMatrix(
+  entries: Array<{ fromApartmentId: string; toApartmentId: string; minutes: number }>,
+) {
+  const statements: D1PreparedStatement[] = [db().prepare(`DELETE FROM distance_matrix`)]
+
+  for (const entry of entries) {
+    statements.push(
+      db()
+        .prepare(
+          `INSERT INTO distance_matrix (from_apartment_id, to_apartment_id, minutes)
+           VALUES (?, ?, ?)`,
+        )
+        .bind(entry.fromApartmentId, entry.toApartmentId, entry.minutes),
+    )
+  }
+
+  await db().batch(statements)
 }
 
 export async function removePushSubscription(endpoint: string) {

@@ -2,16 +2,25 @@ import { AlertCircle, BellDot, CalendarRange, RefreshCcw, Sparkles } from 'lucid
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { startTransition, useEffect, useState } from 'react'
+import { z } from 'zod'
 import { PwaClient } from '#/components/PwaClient'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { getDashboardSnapshot } from '#/lib/dashboard'
-import { formatDayLabel } from '#/lib/date'
+import { formatDayLabel, shiftWeek } from '#/lib/date'
 import type { ChangeSet } from '#/lib/types'
 
-const loadDashboard = createServerFn({ method: 'GET' }).handler(() => getDashboardSnapshot())
+const searchSchema = z.object({
+  week: z.string().optional(),
+})
+
+const loadDashboard = createServerFn({ method: 'GET' })
+  .inputValidator((data: { weekStart?: string }) => data)
+  .handler(({ data }) => getDashboardSnapshot(data.weekStart))
 
 export const Route = createFileRoute('/')({
-  loader: () => loadDashboard(),
+  validateSearch: searchSchema,
+  loaderDeps: ({ search }) => ({ weekStart: search.week }),
+  loader: ({ deps }) => loadDashboard({ data: { weekStart: deps.weekStart } }),
   component: App,
 })
 
@@ -32,6 +41,7 @@ async function postJson(url: string, body?: unknown) {
 
 function App() {
   const data = Route.useLoaderData()
+  const search = Route.useSearch()
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(
     data.dayGroups.find((group) => !group.isEmpty)?.date ?? data.weekStart,
@@ -49,6 +59,26 @@ function App() {
   async function refresh() {
     startTransition(() => {
       router.invalidate()
+    })
+  }
+
+  function moveWeek(direction: -1 | 1) {
+    startTransition(() => {
+      void router.navigate({
+        to: '/',
+        search: () => ({
+          week: shiftWeek(data.weekStart, direction),
+        }),
+      })
+    })
+  }
+
+  function jumpToCurrentWeek() {
+    startTransition(() => {
+      void router.navigate({
+        to: '/',
+        search: () => ({}),
+      })
     })
   }
 
@@ -171,6 +201,23 @@ function App() {
           </div>
         </div>
 
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button type="button" className="action-secondary" onClick={() => moveWeek(-1)}>
+            Previous week
+          </button>
+          <button type="button" className="action-secondary" onClick={() => moveWeek(1)}>
+            Next week
+          </button>
+          <button
+            type="button"
+            className="action-ghost"
+            onClick={jumpToCurrentWeek}
+            disabled={!search.week}
+          >
+            This week
+          </button>
+        </div>
+
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
@@ -178,12 +225,12 @@ function App() {
             disabled={busyKey === 'sync'}
             onClick={() =>
               runAction('sync', async () => {
-                await postJson('/api/system/run-sync')
+                await postJson('/api/system/run-sync', { weekStart: data.weekStart })
               })
             }
           >
             <RefreshCcw size={16} />
-            {busyKey === 'sync' ? 'Checking iCal...' : 'Check iCal now'}
+            {busyKey === 'sync' ? 'Checking iCal...' : 'Check iCal for this week'}
           </button>
           <button
             type="button"
@@ -191,11 +238,11 @@ function App() {
             disabled={busyKey === 'confirm'}
             onClick={() =>
               runAction('confirm', async () => {
-                await postJson('/api/schedule/confirm')
+                await postJson('/api/schedule/confirm', { weekStart: data.weekStart })
               })
             }
           >
-            Confirm current week
+            Confirm this week
           </button>
           <PdfExportButton
             weekLabel={data.weekLabel}
@@ -349,7 +396,10 @@ function App() {
             onSubmit={(event) => {
               event.preventDefault()
               void runAction('chat', async () => {
-                await postJson('/api/chat/propose', { message: chatMessage })
+                await postJson('/api/chat/propose', {
+                  message: chatMessage,
+                  weekStart: data.weekStart,
+                })
                 setChatMessage('')
               })
             }}
@@ -395,7 +445,13 @@ function App() {
           </div>
         </article>
 
-        <SetupPanel busyKey={busyKey} onAction={runAction} apartments={data.apartments} />
+        <SetupPanel
+          busyKey={busyKey}
+          onAction={runAction}
+          apartments={data.apartments}
+          distanceMatrixPairs={data.distanceMatrixPairs}
+          apartmentsMissingCoordinates={data.apartmentsMissingCoordinates}
+        />
       </section>
     </main>
   )
@@ -485,19 +541,28 @@ function SetupPanel({
   busyKey,
   onAction,
   apartments,
+  distanceMatrixPairs,
+  apartmentsMissingCoordinates,
 }: {
   busyKey: string | null
   onAction: (key: string, action: () => Promise<void>) => Promise<void>
-  apartments: Array<{ id: string; name: string }>
+  apartments: Array<{ id: string; name: string; latitude: number | null; longitude: number | null }>
+  distanceMatrixPairs: number
+  apartmentsMissingCoordinates: number
 }) {
   const [apartmentName, setApartmentName] = useState('')
   const [buildingId, setBuildingId] = useState('')
   const [address, setAddress] = useState('')
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
   const [icalUrl, setIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
   const [manualLabel, setManualLabel] = useState('')
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')
+  const [locationApartmentId, setLocationApartmentId] = useState('')
+  const [locationLatitude, setLocationLatitude] = useState('')
+  const [locationLongitude, setLocationLongitude] = useState('')
 
   return (
     <article className="ledger-panel rounded-[2rem] p-5">
@@ -516,11 +581,15 @@ function SetupPanel({
                 name: apartmentName,
                 buildingId,
                 address,
+                latitude: latitude ? Number(latitude) : null,
+                longitude: longitude ? Number(longitude) : null,
                 icalUrl,
               })
               setApartmentName('')
               setBuildingId('')
               setAddress('')
+              setLatitude('')
+              setLongitude('')
               setIcalUrl('')
             })
           }}
@@ -544,6 +613,24 @@ function SetupPanel({
             value={address}
             onChange={(event) => setAddress(event.target.value)}
           />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              type="number"
+              step="any"
+              className="field"
+              placeholder="Latitude"
+              value={latitude}
+              onChange={(event) => setLatitude(event.target.value)}
+            />
+            <input
+              type="number"
+              step="any"
+              className="field"
+              placeholder="Longitude"
+              value={longitude}
+              onChange={(event) => setLongitude(event.target.value)}
+            />
+          </div>
           <input
             className="field"
             placeholder="iCal URL (optional for now)"
@@ -552,6 +639,62 @@ function SetupPanel({
           />
           <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
             {busyKey === 'add-apartment' ? 'Saving...' : 'Add apartment'}
+          </button>
+        </form>
+
+        <form
+          className="space-y-3 border-t border-[var(--line)] pt-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void onAction('save-location', async () => {
+              await postJson(`/api/setup/apartments/${locationApartmentId}/location`, {
+                latitude: Number(locationLatitude),
+                longitude: Number(locationLongitude),
+              })
+              setLocationApartmentId('')
+              setLocationLatitude('')
+              setLocationLongitude('')
+            })
+          }}
+        >
+          <h3 className="section-title">Apartment coordinates</h3>
+          <select
+            className="field"
+            value={locationApartmentId}
+            onChange={(event) => setLocationApartmentId(event.target.value)}
+          >
+            <option value="">Choose apartment</option>
+            {apartments.map((apartment) => (
+              <option key={apartment.id} value={apartment.id}>
+                {apartment.name}
+                {apartment.latitude !== null && apartment.longitude !== null ? ' • coords set' : ''}
+              </option>
+            ))}
+          </select>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              type="number"
+              step="any"
+              className="field"
+              placeholder="Latitude"
+              value={locationLatitude}
+              onChange={(event) => setLocationLatitude(event.target.value)}
+            />
+            <input
+              type="number"
+              step="any"
+              className="field"
+              placeholder="Longitude"
+              value={locationLongitude}
+              onChange={(event) => setLocationLongitude(event.target.value)}
+            />
+          </div>
+          <button
+            type="submit"
+            className="action-secondary"
+            disabled={busyKey === 'save-location' || !locationApartmentId}
+          >
+            {busyKey === 'save-location' ? 'Saving...' : 'Save coordinates'}
           </button>
         </form>
 
@@ -625,6 +768,26 @@ function SetupPanel({
             {busyKey === 'add-manual' ? 'Saving...' : 'Add external clean'}
           </button>
         </form>
+
+        <div className="space-y-3 border-t border-[var(--line)] pt-5">
+          <h3 className="section-title">Travel matrix</h3>
+          <p className="text-sm leading-7 text-[var(--ink-soft)]">
+            {distanceMatrixPairs} stored travel pairs. {apartmentsMissingCoordinates} apartment
+            {apartmentsMissingCoordinates === 1 ? '' : 's'} still need coordinates.
+          </p>
+          <button
+            type="button"
+            className="action-secondary"
+            disabled={busyKey === 'seed-distance'}
+            onClick={() => {
+              void onAction('seed-distance', async () => {
+                await postJson('/api/setup/distance-matrix/seed')
+              })
+            }}
+          >
+            {busyKey === 'seed-distance' ? 'Seeding...' : 'Seed distance matrix'}
+          </button>
+        </div>
       </div>
     </article>
   )
