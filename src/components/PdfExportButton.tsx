@@ -127,7 +127,7 @@ export function PdfExportButton({
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: `StayClean ${weekLabel}`,
+          title: `${weekLabel}`,
           text: 'Weekly cleaning schedule',
           files: [file],
         })
