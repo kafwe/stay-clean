@@ -1,4 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { Apartment, Cleaner } from '#/lib/types'
+import {
+  normalizeCleanerColorHex,
+  THEME_CLEANER_COLORS,
+  isThemeCleanerColor,
+} from '#/lib/cleaner-colors'
 
 async function postJson(url: string, body?: unknown) {
   const response = await fetch(url, {
@@ -16,6 +22,8 @@ async function postJson(url: string, body?: unknown) {
 }
 
 export function SetupWorkspace({
+  apartments,
+  cleaners,
   distanceMatrixPairs,
   apartmentsMissingCoordinates,
   busyKey,
@@ -24,6 +32,8 @@ export function SetupWorkspace({
   setError,
   onDone,
 }: {
+  apartments: Apartment[]
+  cleaners: Cleaner[]
   distanceMatrixPairs: number
   apartmentsMissingCoordinates: number
   busyKey: string | null
@@ -33,13 +43,13 @@ export function SetupWorkspace({
   onDone: () => Promise<void>
 }) {
   const [apartmentName, setApartmentName] = useState('')
-  const [apartmentColloquialName, setApartmentColloquialName] = useState('')
-  const [buildingId, setBuildingId] = useState('')
   const [address, setAddress] = useState('')
-  const [latitude, setLatitude] = useState('')
-  const [longitude, setLongitude] = useState('')
   const [icalUrl, setIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
+  const [cleanerColorHex, setCleanerColorHex] = useState(THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
+  const [localCleaners, setLocalCleaners] = useState(cleaners)
+  const [editingCleanerId, setEditingCleanerId] = useState<string | null>(null)
+  const [editingCleanerName, setEditingCleanerName] = useState('')
   const [activeTool, setActiveTool] = useState<
     'home' | 'cleaner' | 'travel' | null
   >(null)
@@ -65,6 +75,65 @@ export function SetupWorkspace({
       setBusyKey(null)
     }
   }
+
+  useEffect(() => {
+    setLocalCleaners(cleaners)
+  }, [cleaners])
+
+  async function runOptimisticCleanerAction(
+    key: string,
+    optimisticUpdate: () => void,
+    rollback: () => void,
+    action: () => Promise<void>,
+  ) {
+    setBusyKey(key)
+    setError(null)
+    optimisticUpdate()
+
+    try {
+      await action()
+    } catch (actionError) {
+      rollback()
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  const normalizedCleanerNames = new Set(
+    localCleaners.map((cleaner) => cleaner.name.trim().toLocaleLowerCase()),
+  )
+  const trimmedCleanerName = cleanerName.trim()
+  const cleanerAlreadyExists =
+    trimmedCleanerName.length > 0 &&
+    normalizedCleanerNames.has(trimmedCleanerName.toLocaleLowerCase())
+  const cleanerNameTooShort = trimmedCleanerName.length > 0 && trimmedCleanerName.length < 2
+  const normalizedUsedCleanerColors = new Set(
+    localCleaners
+      .map((cleaner) => normalizeCleanerColorHex(cleaner.colorHex))
+      .filter((value): value is string => Boolean(value)),
+  )
+  const fallbackCleanerColor =
+    THEME_CLEANER_COLORS.find(
+      (color) => !normalizedUsedCleanerColors.has(color.hex.toLocaleLowerCase()),
+    )?.hex ?? THEME_CLEANER_COLORS[0]?.hex ?? '#7fc8f8'
+  const selectedCleanerColor = isThemeCleanerColor(cleanerColorHex)
+    ? cleanerColorHex
+    : fallbackCleanerColor
+  const canSubmitCleaner =
+    busyKey !== 'add-cleaner' &&
+    trimmedCleanerName.length >= 2 &&
+    !cleanerAlreadyExists
+  const editingCleanerNameTrimmed = editingCleanerName.trim()
+  const editingCleanerNameTooShort =
+    editingCleanerNameTrimmed.length > 0 && editingCleanerNameTrimmed.length < 2
+  const editingCleanerNameAlreadyExists =
+    editingCleanerNameTrimmed.length > 0 &&
+    localCleaners.some(
+      (cleaner) =>
+        cleaner.id !== editingCleanerId &&
+        cleaner.name.trim().toLocaleLowerCase() === editingCleanerNameTrimmed.toLocaleLowerCase(),
+    )
 
   return (
     <section className="content-stack">
@@ -101,36 +170,77 @@ export function SetupWorkspace({
                 void runAction('add-apartment', async () => {
                   await postJson('/api/setup/apartments', {
                     name: apartmentName,
-                    colloquialName: apartmentColloquialName,
-                    buildingId,
                     address,
-                    latitude: latitude ? Number(latitude) : null,
-                    longitude: longitude ? Number(longitude) : null,
                     icalUrl,
                   })
                   setApartmentName('')
-                  setApartmentColloquialName('')
-                  setBuildingId('')
                   setAddress('')
-                  setLatitude('')
-                  setLongitude('')
                   setIcalUrl('')
                 })
               }}
             >
-              <h2 className="section-title">Add a home</h2>
-              <input className="field" placeholder="Listing name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} />
-              <input className="field" placeholder="Everyday apartment name" value={apartmentColloquialName} onChange={(event) => setApartmentColloquialName(event.target.value)} />
-              <input className="field" placeholder="Building name or ID" value={buildingId} onChange={(event) => setBuildingId(event.target.value)} />
-              <input className="field" placeholder="Address" value={address} onChange={(event) => setAddress(event.target.value)} />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input type="number" step="any" className="field" placeholder="Latitude" value={latitude} onChange={(event) => setLatitude(event.target.value)} />
-                <input type="number" step="any" className="field" placeholder="Longitude" value={longitude} onChange={(event) => setLongitude(event.target.value)} />
+              <div className="space-y-1">
+                <h2 className="section-title">Add a home</h2>
+                <p className="text-sm leading-6 text-[var(--ink-soft)]">
+                  Enter the listing and address. We will pin the home location automatically.
+                </p>
               </div>
+              <input className="field" placeholder="Listing name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} required />
+              <input className="field" placeholder="Street address" value={address} onChange={(event) => setAddress(event.target.value)} required />
               <input className="field" placeholder="Booking feed link (optional)" value={icalUrl} onChange={(event) => setIcalUrl(event.target.value)} />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
-                {busyKey === 'add-apartment' ? 'Saving...' : 'Add home'}
+                {busyKey === 'add-apartment' ? 'Finding location...' : 'Add home'}
               </button>
+
+              <div className="home-list-wrap">
+                <p className="section-title">Your homes</p>
+                {apartments.length ? (
+                  <div className="home-list-grid">
+                    {apartments.map((apartment) => {
+                      const deleteKey = `delete-apartment-${apartment.id}`
+                      const isDeleting = busyKey === deleteKey
+
+                      return (
+                        <article key={apartment.id} className="home-card">
+                          <div>
+                            <p className="home-card-name">{apartment.colloquialName ?? apartment.name}</p>
+                            <p className="home-card-address">{apartment.address}</p>
+                            {apartment.icalUrl ? (
+                              <a href={apartment.icalUrl} className="home-card-link" target="_blank" rel="noreferrer">
+                                Booking feed
+                              </a>
+                            ) : (
+                              <p className="home-card-muted">No booking feed connected</p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="action-ghost home-delete-button"
+                            disabled={isDeleting}
+                            onClick={() => {
+                              const confirmed = window.confirm(
+                                `Delete ${apartment.colloquialName ?? apartment.name}? This removes its related bookings and schedule items.`,
+                              )
+
+                              if (!confirmed) {
+                                return
+                              }
+
+                              void runAction(deleteKey, async () => {
+                                await postJson(`/api/setup/apartments/${apartment.id}/delete`)
+                              })
+                            }}
+                          >
+                            {isDeleting ? 'Deleting...' : 'Delete home'}
+                          </button>
+                        </article>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-6 text-[var(--ink-soft)]">No homes added yet.</p>
+                )}
+              </div>
             </form>
           ) : null}
 
@@ -139,17 +249,248 @@ export function SetupWorkspace({
               className="fold-panel space-y-3"
               onSubmit={(event) => {
                 event.preventDefault()
+
+                if (trimmedCleanerName.length < 2) {
+                  setError('Cleaner name must be at least 2 characters long')
+                  return
+                }
+
+                if (cleanerAlreadyExists) {
+                  setError('That cleaner already exists')
+                  return
+                }
+
+                if (!isThemeCleanerColor(selectedCleanerColor)) {
+                  setError('Choose one of the suggested theme colors')
+                  return
+                }
+
                 void runAction('add-cleaner', async () => {
-                  await postJson('/api/setup/cleaners', { name: cleanerName })
+                  await postJson('/api/setup/cleaners', {
+                    name: trimmedCleanerName,
+                    colorHex: selectedCleanerColor,
+                  })
                   setCleanerName('')
+                  setCleanerColorHex(fallbackCleanerColor)
                 })
               }}
             >
-              <h2 className="section-title">Add a cleaner</h2>
-              <input className="field" placeholder="Cleaner name" value={cleanerName} onChange={(event) => setCleanerName(event.target.value)} />
-              <button type="submit" className="action-secondary" disabled={busyKey === 'add-cleaner'}>
+              <div className="space-y-1">
+                <h2 className="section-title">Add a cleaner</h2>
+                <p className="text-sm leading-6 text-[var(--ink-soft)]">
+                  Add each teammate once. Pick a color to spot their assignments faster.
+                </p>
+              </div>
+
+              <input
+                className="field"
+                placeholder="Cleaner name"
+                value={cleanerName}
+                onChange={(event) => setCleanerName(event.target.value)}
+                required
+                minLength={2}
+              />
+
+              <div className="space-y-2">
+                <p className="section-title">Choose a color</p>
+                <div className="theme-color-grid" role="radiogroup" aria-label="Cleaner color">
+                  {THEME_CLEANER_COLORS.map((color) => {
+                    const isSelected = selectedCleanerColor.toLocaleLowerCase() === color.hex.toLocaleLowerCase()
+
+                    return (
+                      <button
+                        key={color.hex}
+                        type="button"
+                        className={`theme-color-swatch ${isSelected ? 'is-selected' : ''}`}
+                        style={{ backgroundColor: color.hex }}
+                        onClick={() => setCleanerColorHex(color.hex)}
+                        role="radio"
+                        aria-checked={isSelected}
+                        aria-label={color.label}
+                        title={color.label}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+
+              {cleanerNameTooShort ? (
+                <p className="text-xs text-[var(--accent-deep)]">Use at least 2 characters.</p>
+              ) : null}
+              {cleanerAlreadyExists ? (
+                <p className="text-xs text-[var(--accent-deep)]">That cleaner already exists.</p>
+              ) : null}
+
+              <button type="submit" className="action-secondary" disabled={!canSubmitCleaner}>
                 {busyKey === 'add-cleaner' ? 'Saving...' : 'Add cleaner'}
               </button>
+
+              <div className="home-list-wrap">
+                <p className="section-title">Current cleaners</p>
+                {localCleaners.length ? (
+                  <div className="home-list-grid">
+                    {localCleaners.map((cleaner) => {
+                      const isEditing = editingCleanerId === cleaner.id
+                      const isUpdating = busyKey === `update-cleaner-${cleaner.id}`
+                      const isDeleting = busyKey === `delete-cleaner-${cleaner.id}`
+
+                      return (
+                        <article
+                          key={cleaner.id}
+                          className={`home-card cleaner-card ${isEditing ? 'is-editing' : ''}`}
+                        >
+                          <div className="cleaner-entry-main">
+                            <span className="cleaner-chip">
+                              <span
+                                className="cleaner-dot"
+                                style={{ backgroundColor: cleaner.colorHex ?? '#7ea8f8' }}
+                                aria-hidden="true"
+                              />
+                              {cleaner.name}
+                            </span>
+
+                            {isEditing ? (
+                              <div className="cleaner-edit-wrap">
+                                <input
+                                  className="field cleaner-edit-input"
+                                  value={editingCleanerName}
+                                  onChange={(event) => setEditingCleanerName(event.target.value)}
+                                  minLength={2}
+                                  required
+                                  autoFocus
+                                />
+                                {editingCleanerNameTooShort ? (
+                                  <p className="text-xs text-[var(--accent-deep)]">Use at least 2 characters.</p>
+                                ) : null}
+                                {editingCleanerNameAlreadyExists ? (
+                                  <p className="text-xs text-[var(--accent-deep)]">That cleaner already exists.</p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className={`cleaner-entry-actions ${isEditing ? 'is-editing' : ''}`}>
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="cleaner-action-button cleaner-action-save"
+                                  disabled={
+                                    isUpdating ||
+                                    editingCleanerNameTrimmed.length < 2 ||
+                                    editingCleanerNameAlreadyExists
+                                  }
+                                  onClick={() => {
+                                    if (
+                                      editingCleanerNameTrimmed.length < 2 ||
+                                      editingCleanerNameAlreadyExists
+                                    ) {
+                                      return
+                                    }
+
+                                    const previousCleaners = localCleaners.map((item) => ({ ...item }))
+                                    const nextName = editingCleanerNameTrimmed
+
+                                    void runOptimisticCleanerAction(
+                                      `update-cleaner-${cleaner.id}`,
+                                      () => {
+                                        setLocalCleaners((current) =>
+                                          current.map((item) =>
+                                            item.id === cleaner.id ? { ...item, name: nextName } : item,
+                                          ),
+                                        )
+                                        setEditingCleanerId(null)
+                                        setEditingCleanerName('')
+                                      },
+                                      () => {
+                                        setLocalCleaners(previousCleaners)
+                                        setEditingCleanerId(cleaner.id)
+                                        setEditingCleanerName(nextName)
+                                      },
+                                      async () => {
+                                        await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
+                                          name: nextName,
+                                        })
+                                      },
+                                    )
+                                  }}
+                                >
+                                  {isUpdating ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="cleaner-action-button cleaner-action-cancel"
+                                  disabled={isUpdating}
+                                  onClick={() => {
+                                    setEditingCleanerId(null)
+                                    setEditingCleanerName('')
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="cleaner-action-button cleaner-action-edit"
+                                  disabled={isDeleting}
+                                  onClick={() => {
+                                    setEditingCleanerId(cleaner.id)
+                                    setEditingCleanerName(cleaner.name)
+                                  }}
+                                >
+                                  Edit name
+                                </button>
+                                <button
+                                  type="button"
+                                  className="cleaner-action-button cleaner-action-delete"
+                                  disabled={isDeleting}
+                                  onClick={() => {
+                                    const confirmed = window.confirm(
+                                      `Delete ${cleaner.name}? Existing assignments will be kept but unassigned.`,
+                                    )
+
+                                    if (!confirmed) {
+                                      return
+                                    }
+
+                                    const previousCleaners = localCleaners.map((item) => ({ ...item }))
+
+                                    void runOptimisticCleanerAction(
+                                      `delete-cleaner-${cleaner.id}`,
+                                      () => {
+                                        setLocalCleaners((current) =>
+                                          current.filter((item) => item.id !== cleaner.id),
+                                        )
+
+                                        if (editingCleanerId === cleaner.id) {
+                                          setEditingCleanerId(null)
+                                          setEditingCleanerName('')
+                                        }
+                                      },
+                                      () => {
+                                        setLocalCleaners(previousCleaners)
+                                      },
+                                      async () => {
+                                        await postJson(`/api/setup/cleaners/${cleaner.id}/delete`)
+                                      },
+                                    )
+                                  }}
+                                >
+                                  {isDeleting ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-6 text-[var(--ink-soft)]">No cleaners added yet.</p>
+                )}
+              </div>
             </form>
           ) : null}
 

@@ -181,7 +181,26 @@ export function DayCard({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="cleaner-chip">{row.cleanerName ?? 'Unassigned'}</span>
+                  <span
+                    className="cleaner-chip"
+                    style={
+                      row.cleanerColorHex
+                        ? {
+                            borderColor: `${row.cleanerColorHex}66`,
+                            backgroundColor: `${row.cleanerColorHex}1f`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {row.cleanerColorHex ? (
+                      <span
+                        className="cleaner-dot"
+                        style={{ backgroundColor: row.cleanerColorHex }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    {row.cleanerName ?? 'Unassigned'}
+                  </span>
                   {onRowSelect ? <span className="cleaner-chip subtle-chip">Edit</span> : null}
                 </div>
               </button>

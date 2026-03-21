@@ -223,6 +223,7 @@ export function generateAssignments(input: {
         taskDate: task.taskDate,
         cleanerId: best?.cleaner.id ?? null,
         cleanerName: best?.cleaner.name ?? null,
+        cleanerColorHex: best?.cleaner.colorHex ?? null,
         sortOrder: assignments.filter((row) => row.taskDate === task.taskDate).length,
         source: 'auto',
         sourceBookingId: task.sourceBookingId ?? null,

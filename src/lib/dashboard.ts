@@ -3,12 +3,15 @@ import { getCookie } from '@tanstack/react-start/server'
 import { formatDistanceToNow } from 'date-fns'
 import { verifySessionToken, SESSION_COOKIE_NAME } from './auth'
 import { formatWeekLabel, getNextWeekStartIso, getWeekRange } from './date'
+import { isThemeCleanerColor, normalizeCleanerColorHex } from './cleaner-colors'
 import {
   countDistancePairs,
   createChangeSet,
   createApartment,
   createCleaner,
   createManualCleanRequest,
+  deleteCleanerWithDependencies,
+  deleteApartmentWithDependencies,
   deleteManualCleanRequest,
   getChangeSetById,
   getDistanceMatrix,
@@ -27,6 +30,7 @@ import {
   recordSyncEvent,
   replaceDistanceMatrix,
   saveWeekPlan,
+  updateCleaner,
   updateApartmentCoordinates,
   updateRunStatus,
 } from './db'
@@ -178,6 +182,10 @@ export async function addApartment(input: {
   await createApartment(input)
 }
 
+export async function deleteApartment(apartmentId: string) {
+  await deleteApartmentWithDependencies(apartmentId)
+}
+
 async function resolveManualRequestLabel(input: {
   apartmentId?: string | null
   label?: string | null
@@ -207,7 +215,63 @@ export async function saveApartmentCoordinates(input: {
 }
 
 export async function addCleaner(input: { name: string; colorHex?: string | null }) {
-  await createCleaner(input)
+  const normalizedName = input.name.trim()
+  if (normalizedName.length < 2) {
+    throw new Error('Cleaner name must be at least 2 characters long')
+  }
+
+  const existing = await listCleaners()
+  const alreadyExists = existing.some(
+    (cleaner) => cleaner.name.trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
+  )
+  if (alreadyExists) {
+    throw new Error('Cleaner name already exists')
+  }
+
+  const cleanedColorHex = normalizeCleanerColorHex(input.colorHex)
+  if (cleanedColorHex && !isThemeCleanerColor(cleanedColorHex)) {
+    throw new Error('Cleaner color must be selected from the app theme palette')
+  }
+
+  await createCleaner({
+    name: normalizedName,
+    colorHex: cleanedColorHex,
+  })
+}
+
+export async function updateCleanerName(input: {
+  cleanerId: string
+  name: string
+}) {
+  const normalizedName = input.name.trim()
+  if (normalizedName.length < 2) {
+    throw new Error('Cleaner name must be at least 2 characters long')
+  }
+
+  const existing = await listCleaners()
+  const alreadyExists = existing.some(
+    (cleaner) =>
+      cleaner.id !== input.cleanerId &&
+      cleaner.name.trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
+  )
+  if (alreadyExists) {
+    throw new Error('Cleaner name already exists')
+  }
+
+  const currentCleaner = existing.find((cleaner) => cleaner.id === input.cleanerId)
+  if (!currentCleaner) {
+    throw new Error('Cleaner not found')
+  }
+
+  await updateCleaner({
+    cleanerId: input.cleanerId,
+    name: normalizedName,
+    colorHex: currentCleaner.colorHex,
+  })
+}
+
+export async function deleteCleaner(cleanerId: string) {
+  await deleteCleanerWithDependencies(cleanerId)
 }
 
 export async function addManualRequest(input: {

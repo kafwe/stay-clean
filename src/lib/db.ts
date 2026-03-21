@@ -305,6 +305,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     source_manual_request_id: string | null
     cleaner_id: string | null
     cleaner_name: string | null
+    cleaner_color_hex: string | null
     sort_order: number
     source: 'auto' | 'manual' | 'approved_patch'
     assignment_notes: string | null
@@ -324,6 +325,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
       source_manual_request_id: string | null
       cleaner_id: string | null
       cleaner_name: string | null
+      cleaner_color_hex: string | null
       sort_order: number
       source: 'auto' | 'manual' | 'approved_patch'
       assignment_notes: string | null
@@ -341,6 +343,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
           ct.source_manual_request_id,
           sa.cleaner_id,
           c.name AS cleaner_name,
+          c.color_hex AS cleaner_color_hex,
           sa.sort_order,
           sa.source,
           sa.notes AS assignment_notes,
@@ -370,6 +373,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
       source_manual_request_id: string | null
       cleaner_id: string | null
       cleaner_name: string | null
+      cleaner_color_hex: string | null
       sort_order: number
       source: 'auto' | 'manual' | 'approved_patch'
       assignment_notes: string | null
@@ -387,6 +391,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
           ct.source_manual_request_id,
           sa.cleaner_id,
           c.name AS cleaner_name,
+          c.color_hex AS cleaner_color_hex,
           sa.sort_order,
           sa.source,
           sa.notes AS assignment_notes,
@@ -413,6 +418,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     sourceManualRequestId: row.source_manual_request_id,
     cleanerId: row.cleaner_id,
     cleanerName: row.cleaner_name,
+    cleanerColorHex: row.cleaner_color_hex,
     sortOrder: row.sort_order,
     source: row.source,
     notes: row.assignment_notes ?? row.task_notes,
@@ -628,6 +634,60 @@ export async function updateApartmentCoordinates(input: {
   )
 }
 
+export async function deleteApartmentWithDependencies(apartmentId: string) {
+  const existingApartment = await first<{ id: string }>(
+    `SELECT id
+     FROM apartments
+     WHERE id = ?`,
+    [apartmentId],
+  )
+
+  if (!existingApartment) {
+    throw new Error('Home not found')
+  }
+
+  await run(
+    `DELETE FROM schedule_assignments
+     WHERE apartment_id = ?
+        OR clean_task_id IN (
+          SELECT id
+          FROM clean_tasks
+          WHERE apartment_id = ?
+        )`,
+    [apartmentId, apartmentId],
+  )
+
+  await run(
+    `DELETE FROM clean_tasks
+     WHERE apartment_id = ?`,
+    [apartmentId],
+  )
+
+  await run(
+    `DELETE FROM manual_clean_requests
+     WHERE apartment_id = ?`,
+    [apartmentId],
+  )
+
+  await run(
+    `DELETE FROM bookings
+     WHERE apartment_id = ?`,
+    [apartmentId],
+  )
+
+  await run(
+    `DELETE FROM distance_matrix
+     WHERE from_apartment_id = ? OR to_apartment_id = ?`,
+    [apartmentId, apartmentId],
+  )
+
+  await run(
+    `DELETE FROM apartments
+     WHERE id = ?`,
+    [apartmentId],
+  )
+}
+
 export async function createCleaner(input: { name: string; colorHex?: string | null }) {
   const id = crypto.randomUUID()
   await run(
@@ -636,6 +696,51 @@ export async function createCleaner(input: { name: string; colorHex?: string | n
     [id, input.name, input.colorHex ?? null],
   )
   return id
+}
+
+export async function updateCleaner(input: {
+  cleanerId: string
+  name: string
+  colorHex?: string | null
+}) {
+  await run(
+    `UPDATE cleaners
+     SET name = ?, color_hex = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [input.name, input.colorHex ?? null, input.cleanerId],
+  )
+}
+
+export async function deleteCleanerWithDependencies(cleanerId: string) {
+  const existingCleaner = await first<{ id: string }>(
+    `SELECT id
+     FROM cleaners
+     WHERE id = ?`,
+    [cleanerId],
+  )
+
+  if (!existingCleaner) {
+    throw new Error('Cleaner not found')
+  }
+
+  await run(
+    `UPDATE schedule_assignments
+     SET cleaner_id = NULL
+     WHERE cleaner_id = ?`,
+    [cleanerId],
+  )
+
+  await run(
+    `DELETE FROM cleaner_availability
+     WHERE cleaner_id = ?`,
+    [cleanerId],
+  )
+
+  await run(
+    `DELETE FROM cleaners
+     WHERE id = ?`,
+    [cleanerId],
+  )
 }
 
 export async function createManualCleanRequest(input: {

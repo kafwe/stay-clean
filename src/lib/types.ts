@@ -73,6 +73,7 @@ export interface ScheduleAssignment {
   taskDate: string
   cleanerId: string | null
   cleanerName: string | null
+  cleanerColorHex: string | null
   sortOrder: number
   source: 'auto' | 'manual' | 'approved_patch'
   sourceBookingId?: string | null

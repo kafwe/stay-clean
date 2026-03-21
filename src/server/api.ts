@@ -6,8 +6,10 @@ import { z } from 'zod'
 import {
   addApartment,
   addCleaner,
+  deleteCleaner,
   addManualRequest,
   addManualRequestToWeek,
+  deleteApartment,
   deleteScheduleAssignment,
   applyQuickScheduleEdit,
   approveSuggestedChange,
@@ -17,6 +19,7 @@ import {
   rejectSuggestedChange,
   saveApartmentCoordinates,
   seedDistanceMatrix,
+  updateCleanerName,
 } from '#/lib/dashboard'
 import {
   createSessionToken,
@@ -30,11 +33,7 @@ const app = new Hono<{ Bindings: Cloudflare.Env }>()
 
 const apartmentSchema = z.object({
   name: z.string().min(2),
-  colloquialName: z.string().min(2),
-  buildingId: z.string().min(1),
   address: z.string().min(4),
-  latitude: z.number().nullable().optional(),
-  longitude: z.number().nullable().optional(),
   icalUrl: z.string().url().optional().or(z.literal('')).optional(),
 })
 
@@ -43,8 +42,18 @@ const weekSchema = z.object({
 })
 
 const cleanerSchema = z.object({
-  name: z.string().min(2),
-  colorHex: z.string().optional(),
+  name: z.string().trim().min(2).max(60),
+  colorHex: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .or(z.literal(''))
+    .optional(),
+})
+
+const cleanerUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(60),
 })
 
 const manualSchema = z.object({
@@ -72,6 +81,49 @@ const quickEditSchema = z.object({
   notes: z.string().nullable().optional(),
   taskDate: z.string().optional(),
 })
+
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number }> {
+  const query = new URLSearchParams({
+    q: address,
+    format: 'jsonv2',
+    limit: '1',
+  })
+
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${query.toString()}`, {
+    headers: {
+      accept: 'application/json',
+      'accept-language': 'en',
+      'user-agent': 'stay-clean/1.0',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Could not find coordinates for this address right now')
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | Array<{ lat?: string; lon?: string }>
+    | null
+
+  const firstHit = payload?.[0]
+  const latitude = Number(firstHit?.lat)
+  const longitude = Number(firstHit?.lon)
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('Could not geocode this address. Please try a more specific address.')
+  }
+
+  return { latitude, longitude }
+}
+
+function inferBuildingId(address: string) {
+  const primarySegment = address
+    .split(',')
+    .map((part) => part.trim())
+    .find(Boolean)
+
+  return (primarySegment || address).slice(0, 80)
+}
 
 app.post(
   '/api/auth/login',
@@ -120,13 +172,21 @@ app.get('/api/dashboard', async (c) => {
 
 app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c) => {
   const payload = c.req.valid('json')
+  const coordinates = await geocodeAddress(payload.address)
+
   await addApartment({
-    ...payload,
-    colloquialName: payload.colloquialName,
-    latitude: payload.latitude ?? null,
-    longitude: payload.longitude ?? null,
+    name: payload.name,
+    buildingId: inferBuildingId(payload.address),
+    address: payload.address,
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
     icalUrl: payload.icalUrl || null,
   })
+  return c.json({ ok: true })
+})
+
+app.post('/api/setup/apartments/:id/delete', async (c) => {
+  await deleteApartment(c.req.param('id'))
   return c.json({ ok: true })
 })
 
@@ -152,6 +212,20 @@ app.post(
 
 app.post('/api/setup/cleaners', zValidator('json', cleanerSchema), async (c) => {
   await addCleaner(c.req.valid('json'))
+  return c.json({ ok: true })
+})
+
+app.post('/api/setup/cleaners/:id/update', zValidator('json', cleanerUpdateSchema), async (c) => {
+  const payload = c.req.valid('json')
+  await updateCleanerName({
+    cleanerId: c.req.param('id'),
+    name: payload.name,
+  })
+  return c.json({ ok: true })
+})
+
+app.post('/api/setup/cleaners/:id/delete', async (c) => {
+  await deleteCleaner(c.req.param('id'))
   return c.json({ ok: true })
 })
 
