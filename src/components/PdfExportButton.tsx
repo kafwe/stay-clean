@@ -1,4 +1,4 @@
-import { Share2 } from 'lucide-react'
+import { Share } from 'lucide-react'
 import { useState } from 'react'
 import type { ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
@@ -153,7 +153,7 @@ export function PdfExportButton({
       aria-label="Share this week"
       title="Share this week"
     >
-      <Share2 size={16} />
+      <Share size={16} className="scale-125" />
       {variant === 'fab' ? null : busy ? 'Preparing...' : 'Share this week'}
     </button>
   )
