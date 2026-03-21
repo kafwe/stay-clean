@@ -94,7 +94,7 @@ function SetupRoute() {
               <div>
                 <p className="text-sm font-semibold text-[var(--ink-strong)]">Phone reminders</p>
                 <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  Get a reminder when the new week is ready or when bookings change.
+                  On iPhone, install from Safari to Home Screen first, then enable reminders for this app.
                 </p>
               </div>
               <PwaClient authenticated={data.authenticated} vapidPublicKey={data.vapidPublicKey} />

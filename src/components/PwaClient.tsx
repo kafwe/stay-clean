@@ -29,29 +29,65 @@ export function PwaClient({
   const [ready, setReady] = useState(false)
   const [pushState, setPushState] = useState<'unsupported' | 'idle' | 'enabled'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [isIosStandalone, setIsIosStandalone] = useState(true)
+
+  function detectIosStandalone() {
+    const isIos = /iPad|iPhone|iPod/i.test(window.navigator.userAgent)
+    if (!isIos) {
+      return true
+    }
+
+    const safariStandalone = Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)
+    const displayStandalone = window.matchMedia('(display-mode: standalone)').matches
+    return safariStandalone || displayStandalone
+  }
 
   useEffect(() => {
-    if (!authenticated || !('serviceWorker' in navigator)) {
+    if (!authenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPushState('unsupported')
       return
     }
 
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then(async () => {
+    const standalone = detectIosStandalone()
+    setIsIosStandalone(standalone)
+    if (!standalone) {
+      setPushState('unsupported')
+      setError('Install the app first: Safari > Share > Add to Home Screen.')
+      return
+    }
+
+    let cancelled = false
+
+    void navigator.serviceWorker.ready
+      .then(async (registration) => {
+        if (cancelled) {
+          return
+        }
+
         setReady(true)
-        const registration = await navigator.serviceWorker.ready
         const subscription = await registration.pushManager.getSubscription()
         if (subscription) {
           setPushState('enabled')
         }
       })
       .catch(() => {
+        if (cancelled) {
+          return
+        }
         setPushState('unsupported')
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [authenticated])
 
   async function enablePush() {
+    if (!isIosStandalone) {
+      setError('Install the app first: Safari > Share > Add to Home Screen.')
+      return
+    }
+
     if (!vapidPublicKey) {
       setError('Add VAPID keys to enable push notifications.')
       return
@@ -84,7 +120,10 @@ export function PwaClient({
       >
         {pushState === 'enabled' ? 'Phone reminders on' : 'Turn on phone reminders'}
       </button>
-      {error ? <p className="text-sm text-[var(--accent-deep)]">{error}</p> : null}
+      {!isIosStandalone ? (
+        <p className="text-sm text-(--ink-soft)">Install this app on your Home Screen before enabling reminders.</p>
+      ) : null}
+      {error ? <p className="text-sm text-(--accent-deep)">{error}</p> : null}
     </div>
   )
 }
