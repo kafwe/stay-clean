@@ -121,9 +121,13 @@ export function PdfExportButton({
       )
 
       const blob = await pdf(pdfDocument).toBlob()
-      const file = new File([blob], `stayclean-${weekLabel.replace(/\s+/g, '-').toLowerCase()}.pdf`, {
+      const file = new File(
+        [blob],
+        `cleaning-schedule-${weekLabel.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+        {
         type: 'application/pdf',
-      })
+        },
+      )
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
