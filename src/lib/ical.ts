@@ -13,7 +13,7 @@ function stableHash(value: string) {
   return `${hash}`
 }
 
-function parseFeed(apartmentId: string, source: string): Booking[] {
+function parseFeed(apartmentId: string, sourceName: 'booking' | 'airbnb', source: string): Booking[] {
   const component = new ICAL.Component(ICAL.parse(source))
   const events = component.getAllSubcomponents('vevent')
 
@@ -25,7 +25,7 @@ function parseFeed(apartmentId: string, source: string): Booking[] {
       const checkOut = event.endDate.toJSDate()
       const summary = event.summary ?? 'Guest'
       const rawHash = stableHash(
-        [event.uid, checkIn.toISOString(), checkOut.toISOString(), summary].join('|'),
+        [sourceName, event.uid, checkIn.toISOString(), checkOut.toISOString(), summary].join('|'),
       )
 
       return {
@@ -43,28 +43,47 @@ function parseFeed(apartmentId: string, source: string): Booking[] {
 
 export async function syncICalFeeds() {
   const apartments = await listApartments()
-  const candidates = apartments.filter((apartment) => apartment.icalUrl)
-  const results: Array<{ apartmentName: string; updated: number }> = []
+  const candidates = apartments.filter(
+    (apartment) => apartment.bookingIcalUrl || apartment.airbnbIcalUrl,
+  )
+  const results: Array<{ apartmentName: string; updated: number; feeds: number }> = []
 
   for (const apartment of candidates) {
     try {
-      const response = await fetch(apartment.icalUrl!)
-      if (!response.ok) {
-        throw new Error(`Feed returned ${response.status}`)
+      const feedUrls: Array<{ name: 'booking' | 'airbnb'; url: string }> = []
+
+      if (apartment.bookingIcalUrl) {
+        feedUrls.push({ name: 'booking', url: apartment.bookingIcalUrl })
       }
 
-      const text = await response.text()
-      const bookings = parseFeed(apartment.id, text).filter((booking) => {
-        const lookback = addDays(getWeekRange().weekStart, -14)
-        return booking.checkOut >= toIsoDate(lookback)
-      })
+      if (apartment.airbnbIcalUrl) {
+        feedUrls.push({ name: 'airbnb', url: apartment.airbnbIcalUrl })
+      }
 
-      await upsertBookings(apartment.id, bookings)
-      results.push({ apartmentName: apartment.name, updated: bookings.length })
+      const allBookings: Booking[] = []
+      for (const feed of feedUrls) {
+        const response = await fetch(feed.url)
+        if (!response.ok) {
+          throw new Error(`${feed.name} feed returned ${response.status}`)
+        }
+
+        const text = await response.text()
+        const bookings = parseFeed(apartment.id, feed.name, text).filter((booking) => {
+          const lookback = addDays(getWeekRange().weekStart, -14)
+          return booking.checkOut >= toIsoDate(lookback)
+        })
+
+        allBookings.push(...bookings)
+      }
+
+      await upsertBookings(apartment.id, allBookings)
+      results.push({ apartmentName: apartment.name, updated: allBookings.length, feeds: feedUrls.length })
     } catch (error) {
       results.push({
         apartmentName: apartment.name,
         updated: 0,
+        feeds:
+          Number(Boolean(apartment.bookingIcalUrl)) + Number(Boolean(apartment.airbnbIcalUrl)),
       })
       await recordSyncEvent('ical-sync-error', 'error', {
         apartmentId: apartment.id,

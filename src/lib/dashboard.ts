@@ -177,7 +177,8 @@ export async function addApartment(input: {
   address: string
   latitude?: number | null
   longitude?: number | null
-  icalUrl?: string | null
+  bookingIcalUrl?: string | null
+  airbnbIcalUrl?: string | null
 }) {
   await createApartment(input)
 }

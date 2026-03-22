@@ -4,7 +4,7 @@ import type { ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
 export function PdfExportButton({
   weekLabel,
-  weekStatus,
+  weekStatus: _weekStatus,
   dayGroups,
   variant = 'default',
 }: {

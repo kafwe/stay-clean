@@ -64,7 +64,8 @@ export async function listApartments(): Promise<Apartment[]> {
     address: string
     latitude: number | null
     longitude: number | null
-    ical_url: string | null
+    booking_ical_url: string | null
+    airbnb_ical_url: string | null
     is_external: number
     notes: string | null
   }>
@@ -78,11 +79,12 @@ export async function listApartments(): Promise<Apartment[]> {
       address: string
       latitude: number | null
       longitude: number | null
-      ical_url: string | null
+      booking_ical_url: string | null
+      airbnb_ical_url: string | null
       is_external: number
       notes: string | null
     }>(
-      `SELECT id, name, colloquial_name, building_id, address, latitude, longitude, ical_url, is_external, notes
+      `SELECT id, name, colloquial_name, building_id, address, latitude, longitude, booking_ical_url, airbnb_ical_url, is_external, notes
        FROM apartments
        ORDER BY COALESCE(colloquial_name, name) ASC`,
     )
@@ -91,26 +93,51 @@ export async function listApartments(): Promise<Apartment[]> {
       throw error
     }
 
-    rows = await all<{
-      id: string
-      name: string
-      building_id: string
-      address: string
-      latitude: number | null
-      longitude: number | null
-      ical_url: string | null
-      is_external: number
-      notes: string | null
-    }>(
-      `SELECT id, name, building_id, address, latitude, longitude, ical_url, is_external, notes
-       FROM apartments
-       ORDER BY name ASC`,
-    ).then((fallbackRows) =>
-      fallbackRows.map((row) => ({
-        ...row,
-        colloquial_name: null,
-      })),
-    )
+    try {
+      rows = await all<{
+        id: string
+        name: string
+        colloquial_name: string | null
+        building_id: string
+        address: string
+        latitude: number | null
+        longitude: number | null
+        booking_ical_url: string | null
+        airbnb_ical_url: string | null
+        is_external: number
+        notes: string | null
+      }>(
+        `SELECT id, name, colloquial_name, building_id, address, latitude, longitude, ical_url AS booking_ical_url, NULL AS airbnb_ical_url, is_external, notes
+         FROM apartments
+         ORDER BY COALESCE(colloquial_name, name) ASC`,
+      )
+    } catch (legacyError) {
+      if (!isMissingColumnError(legacyError)) {
+        throw legacyError
+      }
+
+      rows = await all<{
+        id: string
+        name: string
+        building_id: string
+        address: string
+        latitude: number | null
+        longitude: number | null
+        booking_ical_url: string | null
+        airbnb_ical_url: string | null
+        is_external: number
+        notes: string | null
+      }>(
+        `SELECT id, name, building_id, address, latitude, longitude, ical_url AS booking_ical_url, NULL AS airbnb_ical_url, is_external, notes
+         FROM apartments
+         ORDER BY name ASC`,
+      ).then((fallbackRows) =>
+        fallbackRows.map((row) => ({
+          ...row,
+          colloquial_name: null,
+        })),
+      )
+    }
   }
 
   return rows.map((row) => ({
@@ -121,7 +148,8 @@ export async function listApartments(): Promise<Apartment[]> {
     address: row.address,
     latitude: row.latitude,
     longitude: row.longitude,
-    icalUrl: row.ical_url,
+    bookingIcalUrl: row.booking_ical_url,
+    airbnbIcalUrl: row.airbnb_ical_url,
     isExternal: bool(row.is_external),
     notes: row.notes,
   }))
@@ -596,28 +624,55 @@ export async function createApartment(input: {
   address: string
   latitude?: number | null
   longitude?: number | null
-  icalUrl?: string | null
+  bookingIcalUrl?: string | null
+  airbnbIcalUrl?: string | null
   isExternal?: boolean
   notes?: string | null
 }) {
   const id = crypto.randomUUID()
-  await run(
-    `INSERT INTO apartments
-      (id, name, colloquial_name, building_id, address, latitude, longitude, ical_url, is_external, notes, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    [
-      id,
-      input.name,
-      input.colloquialName ?? null,
-      input.buildingId,
-      input.address,
-      input.latitude ?? null,
-      input.longitude ?? null,
-      input.icalUrl ?? null,
-      input.isExternal ? 1 : 0,
-      input.notes ?? null,
-    ],
-  )
+  try {
+    await run(
+      `INSERT INTO apartments
+        (id, name, colloquial_name, building_id, address, latitude, longitude, booking_ical_url, airbnb_ical_url, ical_url, is_external, notes, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        id,
+        input.name,
+        input.colloquialName ?? null,
+        input.buildingId,
+        input.address,
+        input.latitude ?? null,
+        input.longitude ?? null,
+        input.bookingIcalUrl ?? null,
+        input.airbnbIcalUrl ?? null,
+        input.bookingIcalUrl ?? null,
+        input.isExternal ? 1 : 0,
+        input.notes ?? null,
+      ],
+    )
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    await run(
+      `INSERT INTO apartments
+        (id, name, colloquial_name, building_id, address, latitude, longitude, ical_url, is_external, notes, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        id,
+        input.name,
+        input.colloquialName ?? null,
+        input.buildingId,
+        input.address,
+        input.latitude ?? null,
+        input.longitude ?? null,
+        input.bookingIcalUrl ?? null,
+        input.isExternal ? 1 : 0,
+        input.notes ?? null,
+      ],
+    )
+  }
   return id
 }
 

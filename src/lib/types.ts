@@ -11,7 +11,8 @@ export interface Apartment {
   address: string
   latitude: number | null
   longitude: number | null
-  icalUrl: string | null
+  bookingIcalUrl: string | null
+  airbnbIcalUrl: string | null
   isExternal: boolean
   notes: string | null
 }

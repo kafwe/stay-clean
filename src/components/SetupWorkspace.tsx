@@ -96,7 +96,8 @@ export function SetupWorkspace({
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([])
   const [isAddressSuggestionsOpen, setIsAddressSuggestionsOpen] = useState(false)
   const [isAddressSuggestionsLoading, setIsAddressSuggestionsLoading] = useState(false)
-  const [icalUrl, setIcalUrl] = useState('')
+  const [bookingIcalUrl, setBookingIcalUrl] = useState('')
+  const [airbnbIcalUrl, setAirbnbIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
   const [cleanerColorHex, setCleanerColorHex] = useState(THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
   const [localCleaners, setLocalCleaners] = useState(cleaners)
@@ -281,7 +282,8 @@ export function SetupWorkspace({
                   await postJson('/api/setup/apartments', {
                     name: apartmentName,
                     address,
-                    icalUrl,
+                    bookingIcalUrl,
+                    airbnbIcalUrl,
                     latitude: addressCoordinates?.latitude,
                     longitude: addressCoordinates?.longitude,
                   })
@@ -290,7 +292,8 @@ export function SetupWorkspace({
                   setAddressCoordinates(null)
                   setAddressSuggestions([])
                   setIsAddressSuggestionsOpen(false)
-                  setIcalUrl('')
+                  setBookingIcalUrl('')
+                  setAirbnbIcalUrl('')
                 })
               }}
             >
@@ -353,7 +356,18 @@ export function SetupWorkspace({
               {!isAddressSuggestionsLoading && addressSuggestions.length > 0 ? (
                 <p className="text-xs text-[var(--ink-soft)]">Select a suggested address to save exact coordinates.</p>
               ) : null}
-              <input className="field" placeholder="Booking feed link (optional)" value={icalUrl} onChange={(event) => setIcalUrl(event.target.value)} />
+              <input
+                className="field"
+                placeholder="Booking.com iCal link (optional)"
+                value={bookingIcalUrl}
+                onChange={(event) => setBookingIcalUrl(event.target.value)}
+              />
+              <input
+                className="field"
+                placeholder="Airbnb iCal link (optional)"
+                value={airbnbIcalUrl}
+                onChange={(event) => setAirbnbIcalUrl(event.target.value)}
+              />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
                 {busyKey === 'add-apartment' ? 'Finding location...' : 'Add home'}
               </button>
@@ -371,12 +385,31 @@ export function SetupWorkspace({
                           <div>
                             <p className="home-card-name">{apartment.colloquialName ?? apartment.name}</p>
                             <p className="home-card-address">{apartment.address}</p>
-                            {apartment.icalUrl ? (
-                              <a href={apartment.icalUrl} className="home-card-link" target="_blank" rel="noreferrer">
-                                Booking feed
-                              </a>
+                            {apartment.bookingIcalUrl || apartment.airbnbIcalUrl ? (
+                              <div className="space-y-1">
+                                {apartment.bookingIcalUrl ? (
+                                  <a
+                                    href={apartment.bookingIcalUrl}
+                                    className="home-card-link"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Booking.com iCal
+                                  </a>
+                                ) : null}
+                                {apartment.airbnbIcalUrl ? (
+                                  <a
+                                    href={apartment.airbnbIcalUrl}
+                                    className="home-card-link"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Airbnb iCal
+                                  </a>
+                                ) : null}
+                              </div>
                             ) : (
-                              <p className="home-card-muted">No booking feed connected</p>
+                              <p className="home-card-muted">No booking feeds connected</p>
                             )}
                           </div>
                           <button

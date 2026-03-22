@@ -34,7 +34,8 @@ const app = new Hono<{ Bindings: Cloudflare.Env }>()
 const apartmentSchema = z.object({
   name: z.string().min(2),
   address: z.string().min(4),
-  icalUrl: z.string().url().optional().or(z.literal('')).optional(),
+  bookingIcalUrl: z.string().url().optional().or(z.literal('')).optional(),
+  airbnbIcalUrl: z.string().url().optional().or(z.literal('')).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
 })
@@ -578,7 +579,8 @@ app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c)
     address: payload.address,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
-    icalUrl: payload.icalUrl || null,
+    bookingIcalUrl: payload.bookingIcalUrl || null,
+    airbnbIcalUrl: payload.airbnbIcalUrl || null,
   })
   return c.json({ ok: true })
 })
