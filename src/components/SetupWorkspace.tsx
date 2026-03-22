@@ -6,6 +6,34 @@ import {
   isThemeCleanerColor,
 } from '#/lib/cleaner-colors'
 
+interface PlaceSuggestion {
+  label: string
+  latitude: number
+  longitude: number
+}
+
+function extractCountryCodeFromLocale(locale: string) {
+  const match = locale.trim().match(/[-_]([A-Za-z]{2})$/)
+  return match?.[1]?.toLocaleLowerCase() ?? null
+}
+
+function getPreferredCountryCode() {
+  if (typeof navigator === 'undefined') {
+    return 'za'
+  }
+
+  const localeCandidates = [navigator.language, ...(navigator.languages ?? [])].filter(Boolean)
+
+  for (const locale of localeCandidates) {
+    const countryCode = extractCountryCodeFromLocale(locale)
+    if (countryCode) {
+      return countryCode
+    }
+  }
+
+  return 'za'
+}
+
 async function postJson(url: string, body?: unknown) {
   const response = await fetch(url, {
     method: 'POST',
@@ -19,6 +47,22 @@ async function postJson(url: string, body?: unknown) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null
     throw new Error(payload?.error ?? 'Request failed')
   }
+}
+
+async function getJson<TPayload>(url: string): Promise<TPayload> {
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Request failed')
+  }
+
+  return (await response.json()) as TPayload
 }
 
 export function SetupWorkspace({
@@ -44,6 +88,14 @@ export function SetupWorkspace({
 }) {
   const [apartmentName, setApartmentName] = useState('')
   const [address, setAddress] = useState('')
+  const [preferredCountryCode] = useState(getPreferredCountryCode)
+  const [addressCoordinates, setAddressCoordinates] = useState<{
+    latitude: number
+    longitude: number
+  } | null>(null)
+  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([])
+  const [isAddressSuggestionsOpen, setIsAddressSuggestionsOpen] = useState(false)
+  const [isAddressSuggestionsLoading, setIsAddressSuggestionsLoading] = useState(false)
   const [icalUrl, setIcalUrl] = useState('')
   const [cleanerName, setCleanerName] = useState('')
   const [cleanerColorHex, setCleanerColorHex] = useState(THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
@@ -79,6 +131,59 @@ export function SetupWorkspace({
   useEffect(() => {
     setLocalCleaners(cleaners)
   }, [cleaners])
+
+  useEffect(() => {
+    const trimmedAddress = address.trim()
+    const shouldQuerySuggestions = trimmedAddress.length >= 3 && activeTool === 'home'
+
+    if (!shouldQuerySuggestions) {
+      setAddressSuggestions([])
+      setIsAddressSuggestionsOpen(false)
+      setIsAddressSuggestionsLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setIsAddressSuggestionsLoading(true)
+    const debounceTimer = window.setTimeout(() => {
+      const autocompleteQuery = new URLSearchParams({
+        q: trimmedAddress,
+        country: preferredCountryCode,
+      })
+
+      void getJson<{ suggestions?: PlaceSuggestion[] }>(
+        `/api/places/autocomplete?${autocompleteQuery.toString()}`,
+      )
+        .then((payload) => {
+          if (controller.signal.aborted) {
+            return
+          }
+
+          const suggestions = payload.suggestions ?? []
+          setAddressSuggestions(suggestions)
+          setIsAddressSuggestionsOpen(suggestions.length > 0)
+        })
+        .catch(() => {
+          if (controller.signal.aborted) {
+            return
+          }
+
+          setAddressSuggestions([])
+          setIsAddressSuggestionsOpen(false)
+          setError('Address lookup is unavailable right now. You can still type the full address.')
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsAddressSuggestionsLoading(false)
+          }
+        })
+    }, 260)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(debounceTimer)
+    }
+  }, [address, activeTool, preferredCountryCode])
 
   async function runOptimisticCleanerAction(
     key: string,
@@ -134,6 +239,11 @@ export function SetupWorkspace({
         cleaner.id !== editingCleanerId &&
         cleaner.name.trim().toLocaleLowerCase() === editingCleanerNameTrimmed.toLocaleLowerCase(),
     )
+  const shouldShowAddressSuggestions =
+    activeTool === 'home' &&
+    isAddressSuggestionsOpen &&
+    address.trim().length >= 3 &&
+    addressSuggestions.length > 0
 
   return (
     <section className="content-stack">
@@ -172,9 +282,14 @@ export function SetupWorkspace({
                     name: apartmentName,
                     address,
                     icalUrl,
+                    latitude: addressCoordinates?.latitude,
+                    longitude: addressCoordinates?.longitude,
                   })
                   setApartmentName('')
                   setAddress('')
+                  setAddressCoordinates(null)
+                  setAddressSuggestions([])
+                  setIsAddressSuggestionsOpen(false)
                   setIcalUrl('')
                 })
               }}
@@ -186,7 +301,58 @@ export function SetupWorkspace({
                 </p>
               </div>
               <input className="field" placeholder="Listing name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} required />
-              <input className="field" placeholder="Street address" value={address} onChange={(event) => setAddress(event.target.value)} required />
+              <div className="address-field-wrap">
+                <input
+                  className="field"
+                  placeholder="Street address"
+                  value={address}
+                  onChange={(event) => {
+                    const nextAddress = event.target.value
+                    setAddress(nextAddress)
+                    setIsAddressSuggestionsOpen(true)
+                    const matchedSuggestion = addressSuggestions.find(
+                      (suggestion) => suggestion.label === nextAddress,
+                    )
+                    setAddressCoordinates(
+                      matchedSuggestion
+                        ? {
+                            latitude: matchedSuggestion.latitude,
+                            longitude: matchedSuggestion.longitude,
+                          }
+                        : null,
+                    )
+                  }}
+                  autoComplete="off"
+                  required
+                />
+                {shouldShowAddressSuggestions ? (
+                  <div className="address-suggestions" role="listbox" aria-label="Address suggestions">
+                    {addressSuggestions.map((suggestion) => (
+                      <button
+                        key={`${suggestion.label}-${suggestion.latitude}-${suggestion.longitude}`}
+                        type="button"
+                        className="address-suggestion-item"
+                        onClick={() => {
+                          setAddress(suggestion.label)
+                          setAddressCoordinates({
+                            latitude: suggestion.latitude,
+                            longitude: suggestion.longitude,
+                          })
+                          setIsAddressSuggestionsOpen(false)
+                        }}
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              {isAddressSuggestionsLoading ? (
+                <p className="text-xs text-[var(--ink-soft)]">Finding matching addresses...</p>
+              ) : null}
+              {!isAddressSuggestionsLoading && addressSuggestions.length > 0 ? (
+                <p className="text-xs text-[var(--ink-soft)]">Select a suggested address to save exact coordinates.</p>
+              ) : null}
               <input className="field" placeholder="Booking feed link (optional)" value={icalUrl} onChange={(event) => setIcalUrl(event.target.value)} />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
                 {busyKey === 'add-apartment' ? 'Finding location...' : 'Add home'}

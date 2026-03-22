@@ -86,7 +86,7 @@ export function PdfExportButton({
           <Page size="A4" style={styles.page}>
             <Text style={styles.title}>Cleaning Schedule</Text>
             <Text style={styles.subtitle}>
-              {weekLabel} • {weekStatus ?? 'draft'}
+              {weekLabel}
             </Text>
 
             <View style={styles.table}>

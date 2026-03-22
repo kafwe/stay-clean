@@ -237,6 +237,43 @@ pre code {
   box-shadow: 0 0 0 4px rgba(191, 155, 113, 0.13);
 }
 
+.address-field-wrap {
+  position: relative;
+}
+
+.address-suggestions {
+  margin-top: 0.42rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  padding: 0.45rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 252, 246, 0.98);
+  box-shadow: 0 14px 24px rgba(92, 70, 43, 0.12);
+}
+
+.address-suggestion-item {
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: transparent;
+  text-align: left;
+  color: var(--ink-strong);
+  padding: 0.58rem 0.68rem;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.address-suggestion-item:hover,
+.address-suggestion-item:focus-visible {
+  border-color: rgba(146, 95, 45, 0.2);
+  background: rgba(191, 155, 113, 0.14);
+  outline: none;
+}
+
 .home-list-wrap {
   margin-top: 0.5rem;
   border-top: 1px solid var(--line);

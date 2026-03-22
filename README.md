@@ -53,6 +53,7 @@ npm run seed:mock
 
 - `ADMIN_PASSWORD`: manager login password
 - `SESSION_SECRET`: cookie-signing secret
+- `GOOGLE_PLACES_API_KEY` (optional): enables Google Places autocomplete and Google geocoding (falls back to OpenStreetMap when missing)
 - `VAPID_PUBLIC_KEY`: public push key for the browser
 - `VAPID_PRIVATE_KEY`: JWK private key for server push delivery
 - `APP_BASE_URL`: public app URL used in push deep links
