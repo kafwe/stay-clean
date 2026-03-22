@@ -151,7 +151,7 @@ export function PdfExportButton({
               <View style={styles.header}>
                 <Text style={[styles.headerCell, styles.headerDayCell]}></Text>
                 <Text style={[styles.headerCell, styles.headerApartmentCell]}>Apartment</Text>
-                <Text style={[styles.headerCell, styles.headerCleanerCell]}>Cleaner(s)</Text>
+                <Text style={[styles.headerCell, styles.headerCleanerCell]}>Cleaners</Text>
               </View>
 
               {dayGroups.map((group, groupIndex) => {
