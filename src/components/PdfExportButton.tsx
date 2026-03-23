@@ -49,7 +49,7 @@ export function PdfExportButton({
           paddingVertical: 28,
           fontSize: 12,
           fontFamily: 'Helvetica',
-          backgroundColor: '#e5e5e5',
+          backgroundColor: '#ffffff',
           color: '#111111',
         },
         title: {
