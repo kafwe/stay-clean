@@ -395,6 +395,8 @@ function rebuildTasksFromAssignments(assignments: ScheduleAssignment[]): CleanTa
     taskDate: assignment.taskDate,
     taskType: assignment.taskType,
     sourceBookingId: assignment.sourceBookingId ?? null,
+    bookingSource: assignment.bookingSource ?? null,
+    bookingUrl: assignment.bookingUrl ?? null,
     sourceManualRequestId: assignment.sourceManualRequestId ?? null,
     notes: assignment.notes,
     requiresReview: assignment.taskType === 'midstay_review',

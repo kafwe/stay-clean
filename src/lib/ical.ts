@@ -24,6 +24,11 @@ function parseFeed(apartmentId: string, sourceName: 'booking' | 'airbnb', source
       const checkIn = event.startDate.toJSDate()
       const checkOut = event.endDate.toJSDate()
       const summary = event.summary ?? 'Guest'
+      const eventUrl = event.component.getFirstPropertyValue('url')
+      const bookingUrl =
+        typeof eventUrl === 'string' && /^https?:\/\//i.test(eventUrl)
+          ? eventUrl
+          : null
       const rawHash = stableHash(
         [sourceName, event.uid, checkIn.toISOString(), checkOut.toISOString(), summary].join('|'),
       )
@@ -31,6 +36,8 @@ function parseFeed(apartmentId: string, sourceName: 'booking' | 'airbnb', source
       return {
         id: crypto.randomUUID(),
         apartmentId,
+        source: sourceName,
+        bookingUrl,
         externalRef: event.uid ?? null,
         guestName: summary,
         checkIn: toIsoDate(checkIn),

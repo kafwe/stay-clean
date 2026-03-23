@@ -2,6 +2,7 @@ export type ScheduleStatus = 'draft' | 'confirmed' | 'needs_review'
 export type ChangeSource = 'ical' | 'chat'
 export type ChangeStatus = 'pending' | 'approved' | 'rejected'
 export type TaskType = 'checkout_clean' | 'external_clean' | 'midstay_review'
+export type BookingSource = 'booking' | 'airbnb'
 
 export interface Apartment {
   id: string
@@ -33,6 +34,8 @@ export interface CleanerAvailability {
 export interface Booking {
   id: string
   apartmentId: string
+  source: BookingSource | null
+  bookingUrl: string | null
   externalRef: string | null
   guestName: string | null
   checkIn: string
@@ -60,6 +63,8 @@ export interface CleanTask {
   taskDate: string
   taskType: TaskType
   sourceBookingId?: string | null
+  bookingSource?: BookingSource | null
+  bookingUrl?: string | null
   sourceManualRequestId?: string | null
   notes: string | null
   requiresReview: boolean
@@ -78,6 +83,8 @@ export interface ScheduleAssignment {
   sortOrder: number
   source: 'auto' | 'manual' | 'approved_patch'
   sourceBookingId?: string | null
+  bookingSource?: BookingSource | null
+  bookingUrl?: string | null
   sourceManualRequestId?: string | null
   notes: string | null
   taskType: TaskType

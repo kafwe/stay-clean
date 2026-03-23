@@ -69,11 +69,17 @@ function travelMinutes(fromApartment, toApartment) {
   return Math.max(6, Math.round((distanceKm / 28) * 60 + 6))
 }
 
-function booking({ id, apartmentId, guestName, checkOut, nights }) {
+function booking({ id, apartmentId, guestName, checkOut, nights, source = 'booking' }) {
+  const bookingUrl =
+    source === 'airbnb'
+      ? `https://www.airbnb.com/reservation/details/${id}`
+      : `https://admin.booking.com/hotel/hoteladmin/extranet_ng/manage/booking.html?res_id=${id}`
+
   return {
     id,
     apartment_id: apartmentId,
-    source: 'seed',
+    source,
+    booking_url: bookingUrl,
     external_ref: `${id}-ref`,
     guest_name: guestName,
     check_in: iso(subDays(checkOut, nights)),
@@ -218,6 +224,7 @@ const bookings = [
     guestName: 'Maya Peterson',
     checkOut: addDays(currentWeekStart, 2),
     nights: 3,
+    source: 'booking',
   }),
   booking({
     id: 'booking-atlantic-203-current',
@@ -225,6 +232,7 @@ const bookings = [
     guestName: 'Jonah Ellis',
     checkOut: addDays(currentWeekStart, 2),
     nights: 2,
+    source: 'airbnb',
   }),
   booking({
     id: 'booking-atlantic-305-current',
@@ -232,6 +240,7 @@ const bookings = [
     guestName: 'Lerato Mokoena',
     checkOut: addDays(currentWeekStart, 2),
     nights: 4,
+    source: 'booking',
   }),
   booking({
     id: 'booking-greenmarket-current',
@@ -239,6 +248,7 @@ const bookings = [
     guestName: 'Cleo Adams',
     checkOut: addDays(currentWeekStart, 2),
     nights: 2,
+    source: 'airbnb',
   }),
   booking({
     id: 'booking-camps-bay-current',
@@ -246,6 +256,7 @@ const bookings = [
     guestName: 'Noah Brooks',
     checkOut: addDays(currentWeekStart, 4),
     nights: 10,
+    source: 'booking',
   }),
   booking({
     id: 'booking-sea-point-current',
@@ -253,6 +264,7 @@ const bookings = [
     guestName: 'Ella Grant',
     checkOut: addDays(currentWeekStart, 4),
     nights: 3,
+    source: 'airbnb',
   }),
   booking({
     id: 'booking-atlantic-101-next',
@@ -260,6 +272,7 @@ const bookings = [
     guestName: 'Mila West',
     checkOut: addDays(nextWeekStart, 0),
     nights: 2,
+    source: 'booking',
   }),
   booking({
     id: 'booking-greenmarket-next',
@@ -267,6 +280,7 @@ const bookings = [
     guestName: 'Theo Simon',
     checkOut: addDays(nextWeekStart, 1),
     nights: 3,
+    source: 'airbnb',
   }),
   booking({
     id: 'booking-camps-bay-next',
@@ -274,6 +288,7 @@ const bookings = [
     guestName: 'Amara Stone',
     checkOut: addDays(nextWeekStart, 3),
     nights: 8,
+    source: 'booking',
   }),
   booking({
     id: 'booking-sea-point-next',
@@ -281,6 +296,7 @@ const bookings = [
     guestName: 'Kai Dawson',
     checkOut: addDays(nextWeekStart, 5),
     nights: 4,
+    source: 'airbnb',
   }),
 ]
 

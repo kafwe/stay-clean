@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Plus } from 'lucide-react'
 import { formatDayLabel } from '#/lib/date'
 import type { Apartment, ChangeSet, ManualReviewItem, ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
@@ -105,6 +105,21 @@ export function DayCard({
 }) {
   const alwaysOpen = group.rows.length === 1
   const isOpen = alwaysOpen || open
+  const getSourceLabel = (row: ScheduleDayGroup['rows'][number]) => {
+    if (row.sourceManualRequestId) {
+      return 'Manual'
+    }
+
+    if (row.bookingSource === 'booking') {
+      return 'Booking.com'
+    }
+
+    if (row.bookingSource === 'airbnb') {
+      return 'Airbnb'
+    }
+
+    return null
+  }
 
   const summaryContent = (
     <div>
@@ -165,46 +180,55 @@ export function DayCard({
               No cleaning is scheduled for this day.
             </p>
           ) : (
-            group.rows.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                className="detail-card detail-action"
-                onClick={() => onRowSelect?.(row)}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-[var(--ink-strong)]">
-                    {row.apartmentName}
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                    {row.notes ?? 'Scheduled clean'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="cleaner-chip"
-                    style={
-                      row.cleanerColorHex
-                        ? {
-                            borderColor: `${row.cleanerColorHex}66`,
-                            backgroundColor: `${row.cleanerColorHex}1f`,
-                          }
-                        : undefined
-                    }
+            group.rows.map((row) => {
+              const sourceLabel = getSourceLabel(row)
+
+              return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className="detail-card detail-action"
+                    onClick={() => onRowSelect?.(row)}
                   >
-                    {row.cleanerColorHex ? (
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--ink-strong)]">
+                        {row.apartmentName}
+                      </p>
+                      {sourceLabel ? (
+                        <p className="mt-1 text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                          {sourceLabel}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-sm text-[var(--ink-soft)]">
+                        {row.notes ?? 'Scheduled clean'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <span
-                        className="cleaner-dot"
-                        style={{ backgroundColor: row.cleanerColorHex }}
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                    {row.cleanerName ?? 'Unassigned'}
-                  </span>
-                  {onRowSelect ? <span className="cleaner-chip subtle-chip">Edit</span> : null}
-                </div>
-              </button>
-            ))
+                        className="cleaner-chip"
+                        style={
+                          row.cleanerColorHex
+                            ? {
+                                borderColor: `${row.cleanerColorHex}66`,
+                                backgroundColor: `${row.cleanerColorHex}1f`,
+                              }
+                            : undefined
+                        }
+                      >
+                        {row.cleanerColorHex ? (
+                          <span
+                            className="cleaner-dot"
+                            style={{ backgroundColor: row.cleanerColorHex }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {row.cleanerName ?? 'Unassigned'}
+                      </span>
+                      {onRowSelect ? <span className="cleaner-chip subtle-chip">Edit</span> : null}
+                    </div>
+                  </button>
+              )
+            })
           )}
         </div>
       ) : null}
@@ -451,6 +475,7 @@ export function QuickEditSheet({
   cleanerId,
   notes,
   taskDate,
+  bookingUrl,
   cleaners,
   dateOptions,
   saving,
@@ -469,6 +494,7 @@ export function QuickEditSheet({
   cleanerId: string
   notes: string
   taskDate: string
+  bookingUrl?: string | null
   cleaners: Array<{ id: string; name: string }>
   dateOptions: string[]
   saving: boolean
@@ -491,6 +517,12 @@ export function QuickEditSheet({
           <div>
             <p className="eyebrow">Quick edit</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{title}</h2>
+            {bookingUrl ? (
+              <a href={bookingUrl} target="_blank" rel="noreferrer" className="booking-context-link mt-2">
+                <span className="booking-context-action">View reservation</span>
+                <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            ) : null}
           </div>
           <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
             Close

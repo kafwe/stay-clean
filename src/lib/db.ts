@@ -55,6 +55,14 @@ function bool(value: unknown) {
   return Number(value) === 1
 }
 
+function parseBookingSource(value: string | null | undefined) {
+  if (value === 'booking' || value === 'airbnb') {
+    return value
+  }
+
+  return null
+}
+
 export async function listApartments(): Promise<Apartment[]> {
   let rows: Array<{
     id: string
@@ -228,25 +236,64 @@ export async function listBookingsForRange(
   startIso: string,
   endIso: string,
 ): Promise<Booking[]> {
-  const rows = await all<{
+  let rows: Array<{
     id: string
     apartment_id: string
+    source: string | null
+    booking_url: string | null
     external_ref: string | null
     guest_name: string | null
     check_in: string
     check_out: string
     nights: number
     raw_hash: string
-  }>(
-    `SELECT id, apartment_id, external_ref, guest_name, check_in, check_out, nights, raw_hash
-     FROM bookings
-     WHERE check_out BETWEEN ? AND ? OR check_in BETWEEN ? AND ?`,
-    [startIso, endIso, startIso, endIso],
-  )
+  }>
+
+  try {
+    rows = await all<{
+      id: string
+      apartment_id: string
+      source: string | null
+      booking_url: string | null
+      external_ref: string | null
+      guest_name: string | null
+      check_in: string
+      check_out: string
+      nights: number
+      raw_hash: string
+    }>(
+      `SELECT id, apartment_id, source, booking_url, external_ref, guest_name, check_in, check_out, nights, raw_hash
+       FROM bookings
+       WHERE check_out BETWEEN ? AND ? OR check_in BETWEEN ? AND ?`,
+      [startIso, endIso, startIso, endIso],
+    )
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    rows = await all<{
+      id: string
+      apartment_id: string
+      external_ref: string | null
+      guest_name: string | null
+      check_in: string
+      check_out: string
+      nights: number
+      raw_hash: string
+    }>(
+      `SELECT id, apartment_id, external_ref, guest_name, check_in, check_out, nights, raw_hash
+       FROM bookings
+       WHERE check_out BETWEEN ? AND ? OR check_in BETWEEN ? AND ?`,
+      [startIso, endIso, startIso, endIso],
+    ).then((legacyRows) => legacyRows.map((row) => ({ ...row, source: null, booking_url: null })))
+  }
 
   return rows.map((row) => ({
     id: row.id,
     apartmentId: row.apartment_id,
+    source: parseBookingSource(row.source),
+    bookingUrl: row.booking_url,
     externalRef: row.external_ref,
     guestName: row.guest_name,
     checkIn: row.check_in,
@@ -330,6 +377,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     building_id: string | null
     task_date: string
     source_booking_id: string | null
+    booking_source: string | null
+    booking_url: string | null
     source_manual_request_id: string | null
     cleaner_id: string | null
     cleaner_name: string | null
@@ -350,6 +399,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
       building_id: string | null
       task_date: string
       source_booking_id: string | null
+      booking_source: string | null
+      booking_url: string | null
       source_manual_request_id: string | null
       cleaner_id: string | null
       cleaner_name: string | null
@@ -368,6 +419,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
           a.building_id,
           sa.task_date,
           ct.source_booking_id,
+          b.source AS booking_source,
+          b.booking_url,
           ct.source_manual_request_id,
           sa.cleaner_id,
           c.name AS cleaner_name,
@@ -380,6 +433,7 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
        FROM schedule_assignments sa
        JOIN clean_tasks ct ON ct.id = sa.clean_task_id
        LEFT JOIN apartments a ON a.id = ct.apartment_id
+      LEFT JOIN bookings b ON b.id = ct.source_booking_id
        LEFT JOIN cleaners c ON c.id = sa.cleaner_id
        WHERE sa.schedule_run_id = ?
        ORDER BY sa.task_date ASC, sa.sort_order ASC, apartment_name ASC`,
@@ -398,6 +452,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
       building_id: string | null
       task_date: string
       source_booking_id: string | null
+      booking_source: string | null
+      booking_url: string | null
       source_manual_request_id: string | null
       cleaner_id: string | null
       cleaner_name: string | null
@@ -416,6 +472,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
           a.building_id,
           sa.task_date,
           ct.source_booking_id,
+          NULL AS booking_source,
+          NULL AS booking_url,
           ct.source_manual_request_id,
           sa.cleaner_id,
           c.name AS cleaner_name,
@@ -443,6 +501,8 @@ export async function getWeekAssignments(scheduleRunId: string): Promise<Schedul
     buildingId: row.building_id,
     taskDate: row.task_date,
     sourceBookingId: row.source_booking_id,
+    bookingSource: parseBookingSource(row.booking_source),
+    bookingUrl: row.booking_url,
     sourceManualRequestId: row.source_manual_request_id,
     cleanerId: row.cleaner_id,
     cleanerName: row.cleaner_name,
@@ -904,21 +964,32 @@ export async function removePushSubscription(endpoint: string) {
 }
 
 export async function upsertBookings(apartmentId: string, bookings: Booking[]) {
-  const statements: D1PreparedStatement[] = []
-  const hashes = bookings.map((booking) => booking.rawHash)
-  const windowStart = bookings.reduce<string | null>(
-    (min, booking) => (min && min < booking.checkIn ? min : booking.checkIn),
-    null,
-  )
+  const buildStatements = (includeBookingUrl: boolean) => {
+    const statements: D1PreparedStatement[] = []
 
-  for (const booking of bookings) {
-    statements.push(
-      db()
-        .prepare(
-          `INSERT INTO bookings
-            (id, apartment_id, source, external_ref, guest_name, check_in, check_out, nights, raw_ical_uid, raw_hash, updated_at)
-           VALUES (?, ?, 'ical', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    for (const booking of bookings) {
+      statements.push(
+        db()
+          .prepare(
+            includeBookingUrl
+              ? `INSERT INTO bookings
+            (id, apartment_id, source, booking_url, external_ref, guest_name, check_in, check_out, nights, raw_ical_uid, raw_hash, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON CONFLICT(apartment_id, raw_hash) DO UPDATE SET
+             source = excluded.source,
+             booking_url = excluded.booking_url,
+             external_ref = excluded.external_ref,
+             guest_name = excluded.guest_name,
+             check_in = excluded.check_in,
+             check_out = excluded.check_out,
+             nights = excluded.nights,
+             raw_ical_uid = excluded.raw_ical_uid,
+             updated_at = CURRENT_TIMESTAMP`
+              : `INSERT INTO bookings
+            (id, apartment_id, source, external_ref, guest_name, check_in, check_out, nights, raw_ical_uid, raw_hash, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(apartment_id, raw_hash) DO UPDATE SET
+             source = excluded.source,
              external_ref = excluded.external_ref,
              guest_name = excluded.guest_name,
              check_in = excluded.check_in,
@@ -926,33 +997,70 @@ export async function upsertBookings(apartmentId: string, bookings: Booking[]) {
              nights = excluded.nights,
              raw_ical_uid = excluded.raw_ical_uid,
              updated_at = CURRENT_TIMESTAMP`,
-        )
-        .bind(
-          booking.id,
-          apartmentId,
-          booking.externalRef,
-          booking.guestName,
-          booking.checkIn,
-          booking.checkOut,
-          booking.nights,
-          booking.externalRef,
-          booking.rawHash,
-        ),
-    )
+          )
+          .bind(
+            ...(includeBookingUrl
+              ? [
+                  booking.id,
+                  apartmentId,
+                  booking.source ?? 'booking',
+                  booking.bookingUrl,
+                  booking.externalRef,
+                  booking.guestName,
+                  booking.checkIn,
+                  booking.checkOut,
+                  booking.nights,
+                  booking.externalRef,
+                  booking.rawHash,
+                ]
+              : [
+                  booking.id,
+                  apartmentId,
+                  booking.source ?? 'booking',
+                  booking.externalRef,
+                  booking.guestName,
+                  booking.checkIn,
+                  booking.checkOut,
+                  booking.nights,
+                  booking.externalRef,
+                  booking.rawHash,
+                ]),
+          ),
+      )
+    }
+
+    if (windowStart) {
+      const placeholders = hashes.map(() => '?').join(', ')
+      const query =
+        hashes.length > 0
+          ? `DELETE FROM bookings WHERE apartment_id = ? AND check_out >= ? AND raw_hash NOT IN (${placeholders})`
+          : `DELETE FROM bookings WHERE apartment_id = ? AND check_out >= ?`
+
+      statements.push(db().prepare(query).bind(apartmentId, windowStart, ...hashes))
+    }
+
+    return statements
   }
 
-  if (windowStart) {
-    const placeholders = hashes.map(() => '?').join(', ')
-    const query =
-      hashes.length > 0
-        ? `DELETE FROM bookings WHERE apartment_id = ? AND check_out >= ? AND raw_hash NOT IN (${placeholders})`
-        : `DELETE FROM bookings WHERE apartment_id = ? AND check_out >= ?`
+  const hashes = bookings.map((booking) => booking.rawHash)
+  const windowStart = bookings.reduce<string | null>(
+    (min, booking) => (min && min < booking.checkIn ? min : booking.checkIn),
+    null,
+  )
 
-    statements.push(db().prepare(query).bind(apartmentId, windowStart, ...hashes))
+  const statements = buildStatements(true)
+  if (!statements.length) {
+    return
   }
 
-  if (statements.length) {
+  try {
     await db().batch(statements)
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    await db().batch(buildStatements(false))
   }
 }
 

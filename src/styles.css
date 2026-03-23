@@ -1152,6 +1152,7 @@ pre code {
   width: auto;
   flex: none;
   white-space: nowrap;
+  border-style: solid;
 }
 
 .sheet-danger-zone {
@@ -1162,6 +1163,27 @@ pre code {
   border-radius: 1.15rem;
   background: rgba(166, 90, 57, 0.06);
   padding: 1rem;
+}
+
+.booking-context-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--accent-deep);
+  text-decoration: none;
+}
+
+.booking-context-link:hover {
+  color: #744722;
+}
+
+.booking-context-action {
+  text-decoration: underline;
+  text-decoration-color: rgba(146, 95, 45, 0.36);
+  text-underline-offset: 2px;
 }
 
 .tool-grid {
@@ -1276,4 +1298,5 @@ textarea.field {
   .sheet-close-button {
     width: auto;
   }
+
 }

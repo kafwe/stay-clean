@@ -330,6 +330,7 @@ function App() {
         cleanerId={editCleanerId}
         notes={editNotes}
         taskDate={editTaskDate}
+        bookingUrl={editingAssignment?.bookingUrl ?? null}
         cleaners={data.cleaners}
         dateOptions={weekDates(data.weekStart)}
         saving={busyKey === 'quick-edit'}
