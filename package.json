@@ -17,6 +17,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
     "@hono/zod-validator": "^0.7.5",
+    "@hookform/resolvers": "^5.2.2",
     "@pushforge/builder": "^2.0.1",
     "@react-pdf/renderer": "^4.3.1",
     "@tailwindcss/vite": "^4.1.18",
@@ -35,6 +36,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.72.1",
     "shadcn": "^4.1.2",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.1.18",

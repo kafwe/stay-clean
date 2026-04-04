@@ -28,62 +28,19 @@ import {
   verifySessionToken,
 } from '#/lib/auth'
 import { savePushSubscription } from '#/lib/db'
+import {
+  apartmentSchema,
+  cleanerSchema,
+  cleanerUpdateSchema,
+  deleteAssignmentSchema,
+  loginSchema,
+  manualSchema,
+  quickEditSchema,
+  subscriptionSchema,
+  weekSchema,
+} from '#/lib/validation'
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>()
-
-const apartmentSchema = z.object({
-  name: z.string().min(2),
-  address: z.string().min(4),
-  bookingIcalUrl: z.string().url().optional().or(z.literal('')).optional(),
-  airbnbIcalUrl: z.string().url().optional().or(z.literal('')).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
-})
-
-const weekSchema = z.object({
-  weekStart: z.string().optional(),
-})
-
-const cleanerSchema = z.object({
-  name: z.string().trim().min(2).max(60),
-  colorHex: z
-    .string()
-    .trim()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .optional()
-    .or(z.literal(''))
-    .optional(),
-})
-
-const cleanerUpdateSchema = z.object({
-  name: z.string().trim().min(2).max(60),
-})
-
-const manualSchema = z.object({
-  label: z.string().min(2).optional(),
-  apartmentId: z.string().optional(),
-  taskDate: z.string().optional(),
-  weekday: z.number().min(0).max(6).nullable().optional(),
-  isRecurring: z.boolean().default(false),
-  notes: z.string().optional(),
-  weekStart: z.string().optional(),
-})
-
-const subscriptionSchema = z.object({
-  endpoint: z.string().url(),
-  keys: z.object({
-    p256dh: z.string(),
-    auth: z.string(),
-  }),
-})
-
-const quickEditSchema = z.object({
-  weekStart: z.string().optional(),
-  assignmentId: z.string().min(1),
-  cleanerId: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  taskDate: z.string().optional(),
-})
 
 function normalizeStreetNumber(value: string | undefined | null) {
   return (value || '').trim().toLocaleLowerCase()
@@ -505,9 +462,7 @@ app.post(
   '/api/auth/login',
   zValidator(
     'json',
-    z.object({
-      password: z.string().min(1),
-    }),
+    loginSchema,
   ),
   async (c) => {
     const { password } = c.req.valid('json')
@@ -694,13 +649,7 @@ app.post('/api/schedule/manual-edit', zValidator('json', quickEditSchema), async
 
 app.post(
   '/api/schedule/delete-assignment',
-  zValidator(
-    'json',
-    z.object({
-      weekStart: z.string().optional(),
-      assignmentId: z.string().min(1),
-    }),
-  ),
+  zValidator('json', deleteAssignmentSchema),
   async (c) => {
     await deleteScheduleAssignment(c.req.valid('json'))
     return c.json({ ok: true })

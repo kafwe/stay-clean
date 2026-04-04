@@ -18,7 +18,6 @@ function ReviewRoute() {
   const data = Route.useLoaderData()
   const search = Route.useSearch()
   const router = useRouter()
-  const [password, setPassword] = useState('')
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -72,11 +71,9 @@ function ReviewRoute() {
   if (!data.authenticated) {
     return (
       <AuthView
-        password={password}
-        setPassword={setPassword}
         busy={busyKey === 'login'}
         error={error}
-        onSubmit={() => {
+        onSubmit={(password) => {
           void runAction('login', async () => {
             await postJson('/api/auth/login', { password })
           })

@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import type { Apartment, Cleaner } from '#/lib/types'
 import {
   normalizeCleanerColorHex,
   THEME_CLEANER_COLORS,
   isThemeCleanerColor,
 } from '#/lib/cleaner-colors'
+import {
+  apartmentSchema,
+  cleanerSchema,
+  cleanerUpdateSchema,
+} from '#/lib/validation'
+import type { z } from 'zod'
 
 interface PlaceSuggestion {
   label: string
@@ -82,8 +90,6 @@ export function SetupWorkspace({
   setError: (value: string | null) => void
   onDone: () => Promise<void>
 }) {
-  const [apartmentName, setApartmentName] = useState('')
-  const [address, setAddress] = useState('')
   const [preferredCountryCode] = useState(getPreferredCountryCode)
   const [addressCoordinates, setAddressCoordinates] = useState<{
     latitude: number
@@ -92,13 +98,8 @@ export function SetupWorkspace({
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([])
   const [isAddressSuggestionsOpen, setIsAddressSuggestionsOpen] = useState(false)
   const [isAddressSuggestionsLoading, setIsAddressSuggestionsLoading] = useState(false)
-  const [bookingIcalUrl, setBookingIcalUrl] = useState('')
-  const [airbnbIcalUrl, setAirbnbIcalUrl] = useState('')
-  const [cleanerName, setCleanerName] = useState('')
-  const [cleanerColorHex, setCleanerColorHex] = useState(THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
   const [localCleaners, setLocalCleaners] = useState(cleaners)
   const [editingCleanerId, setEditingCleanerId] = useState<string | null>(null)
-  const [editingCleanerName, setEditingCleanerName] = useState('')
   const [activeTool, setActiveTool] = useState<'home' | 'cleaner' | null>(null)
   const toolOptions: Array<{
     value: 'home' | 'cleaner'
@@ -107,6 +108,60 @@ export function SetupWorkspace({
     { value: 'home', label: 'Add a home' },
     { value: 'cleaner', label: 'Add a cleaner' },
   ]
+
+  const homeForm = useForm<z.input<typeof apartmentSchema>>({
+    resolver: zodResolver(apartmentSchema),
+    defaultValues: {
+      name: '',
+      address: '',
+      bookingIcalUrl: '',
+      airbnbIcalUrl: '',
+    },
+  })
+  const cleanerForm = useForm<z.input<typeof cleanerSchema>>({
+    resolver: zodResolver(cleanerSchema),
+    defaultValues: {
+      name: '',
+      colorHex: THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
+    },
+  })
+  const editCleanerForm = useForm<z.input<typeof cleanerUpdateSchema>>({
+    resolver: zodResolver(cleanerUpdateSchema),
+    defaultValues: {
+      name: '',
+    },
+  })
+
+  const {
+    register: registerHome,
+    handleSubmit: handleHomeSubmit,
+    setValue: setHomeValue,
+    clearErrors: clearHomeErrors,
+    reset: resetHomeForm,
+    formState: { errors: homeErrors },
+  } = homeForm
+  const {
+    register: registerCleaner,
+    handleSubmit: handleCleanerSubmit,
+    setValue: setCleanerValue,
+    setError: setCleanerFormError,
+    clearErrors: clearCleanerErrors,
+    reset: resetCleanerForm,
+    formState: { errors: cleanerErrors },
+  } = cleanerForm
+  const {
+    register: registerEditCleaner,
+    handleSubmit: handleEditCleanerSubmit,
+    reset: resetEditCleanerForm,
+    setError: setEditCleanerFormError,
+    clearErrors: clearEditCleanerErrors,
+    formState: { errors: editCleanerErrors },
+  } = editCleanerForm
+
+  const address = homeForm.watch('address') ?? ''
+  const cleanerName = cleanerForm.watch('name') ?? ''
+  const cleanerColorHex = cleanerForm.watch('colorHex') ?? (THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
+  const editingCleanerName = editCleanerForm.watch('name') ?? ''
 
   async function runAction(key: string, action: () => Promise<void>) {
     setBusyKey(key)
@@ -178,7 +233,7 @@ export function SetupWorkspace({
       controller.abort()
       window.clearTimeout(debounceTimer)
     }
-  }, [address, activeTool, addressCoordinates, preferredCountryCode])
+  }, [address, activeTool, addressCoordinates, preferredCountryCode, setError])
 
   async function runOptimisticCleanerAction(
     key: string,
@@ -207,7 +262,6 @@ export function SetupWorkspace({
   const cleanerAlreadyExists =
     trimmedCleanerName.length > 0 &&
     normalizedCleanerNames.has(trimmedCleanerName.toLocaleLowerCase())
-  const cleanerNameTooShort = trimmedCleanerName.length > 0 && trimmedCleanerName.length < 2
   const normalizedUsedCleanerColors = new Set(
     localCleaners
       .map((cleaner) => normalizeCleanerColorHex(cleaner.colorHex))
@@ -225,8 +279,6 @@ export function SetupWorkspace({
     trimmedCleanerName.length >= 2 &&
     !cleanerAlreadyExists
   const editingCleanerNameTrimmed = editingCleanerName.trim()
-  const editingCleanerNameTooShort =
-    editingCleanerNameTrimmed.length > 0 && editingCleanerNameTrimmed.length < 2
   const editingCleanerNameAlreadyExists =
     editingCleanerNameTrimmed.length > 0 &&
     localCleaners.some(
@@ -239,6 +291,14 @@ export function SetupWorkspace({
     isAddressSuggestionsOpen &&
     address.trim().length >= 3 &&
     addressSuggestions.length > 0
+  const addCleanerNameError =
+    cleanerAlreadyExists
+      ? 'That cleaner already exists.'
+      : cleanerErrors.name?.message
+  const editingCleanerNameError =
+    editingCleanerNameAlreadyExists
+      ? 'That cleaner already exists.'
+      : editCleanerErrors.name?.message
 
   return (
     <section className="content-stack">
@@ -270,26 +330,20 @@ export function SetupWorkspace({
           {activeTool === 'home' ? (
             <form
               className="fold-panel space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault()
+              noValidate
+              onSubmit={handleHomeSubmit((values) => {
                 void runAction('add-apartment', async () => {
                   await postJson('/api/setup/apartments', {
-                    name: apartmentName,
-                    address,
-                    bookingIcalUrl,
-                    airbnbIcalUrl,
+                    ...values,
                     latitude: addressCoordinates?.latitude,
                     longitude: addressCoordinates?.longitude,
                   })
-                  setApartmentName('')
-                  setAddress('')
+                  resetHomeForm()
                   setAddressCoordinates(null)
                   setAddressSuggestions([])
                   setIsAddressSuggestionsOpen(false)
-                  setBookingIcalUrl('')
-                  setAirbnbIcalUrl('')
                 })
-              }}
+              })}
             >
               <div className="space-y-1">
                 <h2 className="section-title">Add a home</h2>
@@ -297,15 +351,29 @@ export function SetupWorkspace({
                   Enter the listing and address. We will pin the home location automatically.
                 </p>
               </div>
-              <input className="field" placeholder="Listing name" value={apartmentName} onChange={(event) => setApartmentName(event.target.value)} required />
+              {homeErrors.name ? (
+                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.name.message}</p>
+              ) : null}
+              <input
+                className="field"
+                placeholder="Listing name"
+                {...registerHome('name')}
+                aria-invalid={homeErrors.name ? 'true' : undefined}
+              />
               <div className="address-field-wrap">
+                {homeErrors.address ? (
+                  <p className="mb-2 text-xs text-[var(--accent-deep)]">{homeErrors.address.message}</p>
+                ) : null}
                 <input
                   className="field"
                   placeholder="Street address"
-                  value={address}
+                  {...registerHome('address')}
                   onChange={(event) => {
                     const nextAddress = event.target.value
-                    setAddress(nextAddress)
+                    setHomeValue('address', nextAddress, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
                     setIsAddressSuggestionsOpen(true)
                     const matchedSuggestion = addressSuggestions.find(
                       (suggestion) => suggestion.label === nextAddress,
@@ -318,9 +386,10 @@ export function SetupWorkspace({
                           }
                         : null,
                     )
+                    clearHomeErrors('address')
                   }}
                   autoComplete="off"
-                  required
+                  aria-invalid={homeErrors.address ? 'true' : undefined}
                 />
                 {shouldShowAddressSuggestions ? (
                   <div className="address-suggestions" role="listbox" aria-label="Address suggestions">
@@ -330,12 +399,16 @@ export function SetupWorkspace({
                         type="button"
                         className="address-suggestion-item"
                         onClick={() => {
-                          setAddress(suggestion.label)
+                          setHomeValue('address', suggestion.label, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
                           setAddressCoordinates({
                             latitude: suggestion.latitude,
                             longitude: suggestion.longitude,
                           })
                           setIsAddressSuggestionsOpen(false)
+                          clearHomeErrors('address')
                         }}
                       >
                         {suggestion.label}
@@ -350,17 +423,23 @@ export function SetupWorkspace({
               {!isAddressSuggestionsLoading && addressSuggestions.length > 0 && !addressCoordinates ? (
                 <p className="text-xs text-[var(--ink-soft)]">Select a suggested address to save exact coordinates.</p>
               ) : null}
+              {homeErrors.bookingIcalUrl ? (
+                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.bookingIcalUrl.message}</p>
+              ) : null}
               <input
                 className="field"
                 placeholder="Booking.com iCal link (optional)"
-                value={bookingIcalUrl}
-                onChange={(event) => setBookingIcalUrl(event.target.value)}
+                {...registerHome('bookingIcalUrl')}
+                aria-invalid={homeErrors.bookingIcalUrl ? 'true' : undefined}
               />
+              {homeErrors.airbnbIcalUrl ? (
+                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.airbnbIcalUrl.message}</p>
+              ) : null}
               <input
                 className="field"
                 placeholder="Airbnb iCal link (optional)"
-                value={airbnbIcalUrl}
-                onChange={(event) => setAirbnbIcalUrl(event.target.value)}
+                {...registerHome('airbnbIcalUrl')}
+                aria-invalid={homeErrors.airbnbIcalUrl ? 'true' : undefined}
               />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
                 {busyKey === 'add-apartment' ? 'Finding location...' : 'Add home'}
@@ -440,33 +519,35 @@ export function SetupWorkspace({
           {activeTool === 'cleaner' ? (
             <form
               className="fold-panel space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault()
-
-                if (trimmedCleanerName.length < 2) {
-                  setError('Cleaner name must be at least 2 characters long')
-                  return
-                }
-
+              noValidate
+              onSubmit={handleCleanerSubmit((values) => {
                 if (cleanerAlreadyExists) {
-                  setError('That cleaner already exists')
+                  setCleanerFormError('name', {
+                    type: 'manual',
+                    message: 'That cleaner already exists.',
+                  })
                   return
                 }
 
                 if (!isThemeCleanerColor(selectedCleanerColor)) {
-                  setError('Choose one of the suggested theme colors')
+                  setCleanerFormError('colorHex', {
+                    type: 'manual',
+                    message: 'Choose one of the suggested theme colors',
+                  })
                   return
                 }
 
                 void runAction('add-cleaner', async () => {
                   await postJson('/api/setup/cleaners', {
-                    name: trimmedCleanerName,
+                    ...values,
                     colorHex: selectedCleanerColor,
                   })
-                  setCleanerName('')
-                  setCleanerColorHex(fallbackCleanerColor)
+                  resetCleanerForm({
+                    name: '',
+                    colorHex: fallbackCleanerColor,
+                  })
                 })
-              }}
+              })}
             >
               <div className="space-y-1">
                 <h2 className="section-title">Add a cleaner</h2>
@@ -474,14 +555,21 @@ export function SetupWorkspace({
                   Add each teammate once. Pick a color to spot their assignments faster.
                 </p>
               </div>
+              {addCleanerNameError ? (
+                <p className="text-xs text-[var(--accent-deep)]">{addCleanerNameError}</p>
+              ) : null}
 
               <input
                 className="field"
                 placeholder="Cleaner name"
-                value={cleanerName}
-                onChange={(event) => setCleanerName(event.target.value)}
-                required
-                minLength={2}
+                {...registerCleaner('name', {
+                  onChange: () => {
+                    if (cleanerErrors.name) {
+                      clearCleanerErrors('name')
+                    }
+                  },
+                })}
+                aria-invalid={addCleanerNameError ? 'true' : undefined}
               />
 
               <div className="space-y-2">
@@ -496,7 +584,13 @@ export function SetupWorkspace({
                         type="button"
                         className={`theme-color-swatch ${isSelected ? 'is-selected' : ''}`}
                         style={{ backgroundColor: color.hex }}
-                        onClick={() => setCleanerColorHex(color.hex)}
+                        onClick={() => {
+                          setCleanerValue('colorHex', color.hex, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                          clearCleanerErrors('colorHex')
+                        }}
                         role="radio"
                         aria-checked={isSelected}
                         aria-label={color.label}
@@ -507,11 +601,8 @@ export function SetupWorkspace({
                 </div>
               </div>
 
-              {cleanerNameTooShort ? (
-                <p className="text-xs text-[var(--accent-deep)]">Use at least 2 characters.</p>
-              ) : null}
-              {cleanerAlreadyExists ? (
-                <p className="text-xs text-[var(--accent-deep)]">That cleaner already exists.</p>
+              {cleanerErrors.colorHex ? (
+                <p className="text-xs text-[var(--accent-deep)]">{cleanerErrors.colorHex.message}</p>
               ) : null}
 
               <button type="submit" className="action-secondary" disabled={!canSubmitCleaner}>
@@ -544,20 +635,21 @@ export function SetupWorkspace({
 
                             {isEditing ? (
                               <div className="cleaner-edit-wrap">
+                                {editingCleanerNameError ? (
+                                  <p className="text-xs text-[var(--accent-deep)]">{editingCleanerNameError}</p>
+                                ) : null}
                                 <input
                                   className="field cleaner-edit-input"
-                                  value={editingCleanerName}
-                                  onChange={(event) => setEditingCleanerName(event.target.value)}
-                                  minLength={2}
-                                  required
+                                  {...registerEditCleaner('name', {
+                                    onChange: () => {
+                                      if (editCleanerErrors.name) {
+                                        clearEditCleanerErrors('name')
+                                      }
+                                    },
+                                  })}
                                   autoFocus
+                                  aria-invalid={editingCleanerNameError ? 'true' : undefined}
                                 />
-                                {editingCleanerNameTooShort ? (
-                                  <p className="text-xs text-[var(--accent-deep)]">Use at least 2 characters.</p>
-                                ) : null}
-                                {editingCleanerNameAlreadyExists ? (
-                                  <p className="text-xs text-[var(--accent-deep)]">That cleaner already exists.</p>
-                                ) : null}
                               </div>
                             ) : null}
                           </div>
@@ -574,38 +666,41 @@ export function SetupWorkspace({
                                     editingCleanerNameAlreadyExists
                                   }
                                   onClick={() => {
-                                    if (
-                                      editingCleanerNameTrimmed.length < 2 ||
-                                      editingCleanerNameAlreadyExists
-                                    ) {
-                                      return
-                                    }
-
-                                    const previousCleaners = localCleaners.map((item) => ({ ...item }))
-                                    const nextName = editingCleanerNameTrimmed
-
-                                    void runOptimisticCleanerAction(
-                                      `update-cleaner-${cleaner.id}`,
-                                      () => {
-                                        setLocalCleaners((current) =>
-                                          current.map((item) =>
-                                            item.id === cleaner.id ? { ...item, name: nextName } : item,
-                                          ),
-                                        )
-                                        setEditingCleanerId(null)
-                                        setEditingCleanerName('')
-                                      },
-                                      () => {
-                                        setLocalCleaners(previousCleaners)
-                                        setEditingCleanerId(cleaner.id)
-                                        setEditingCleanerName(nextName)
-                                      },
-                                      async () => {
-                                        await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
-                                          name: nextName,
+                                    void handleEditCleanerSubmit((values) => {
+                                      if (editingCleanerNameAlreadyExists) {
+                                        setEditCleanerFormError('name', {
+                                          type: 'manual',
+                                          message: 'That cleaner already exists.',
                                         })
-                                      },
-                                    )
+                                        return
+                                      }
+
+                                      const previousCleaners = localCleaners.map((item) => ({ ...item }))
+                                      const nextName = values.name
+
+                                      void runOptimisticCleanerAction(
+                                        `update-cleaner-${cleaner.id}`,
+                                        () => {
+                                          setLocalCleaners((current) =>
+                                            current.map((item) =>
+                                              item.id === cleaner.id ? { ...item, name: nextName } : item,
+                                            ),
+                                          )
+                                          setEditingCleanerId(null)
+                                          resetEditCleanerForm({ name: '' })
+                                        },
+                                        () => {
+                                          setLocalCleaners(previousCleaners)
+                                          setEditingCleanerId(cleaner.id)
+                                          resetEditCleanerForm({ name: nextName })
+                                        },
+                                        async () => {
+                                          await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
+                                            name: nextName,
+                                          })
+                                        },
+                                      )
+                                    })()
                                   }}
                                 >
                                   {isUpdating ? 'Saving...' : 'Save'}
@@ -616,7 +711,7 @@ export function SetupWorkspace({
                                   disabled={isUpdating}
                                   onClick={() => {
                                     setEditingCleanerId(null)
-                                    setEditingCleanerName('')
+                                    resetEditCleanerForm({ name: '' })
                                   }}
                                 >
                                   Cancel
@@ -630,7 +725,7 @@ export function SetupWorkspace({
                                   disabled={isDeleting}
                                   onClick={() => {
                                     setEditingCleanerId(cleaner.id)
-                                    setEditingCleanerName(cleaner.name)
+                                    resetEditCleanerForm({ name: cleaner.name })
                                   }}
                                 >
                                   Edit name
@@ -659,7 +754,7 @@ export function SetupWorkspace({
 
                                         if (editingCleanerId === cleaner.id) {
                                           setEditingCleanerId(null)
-                                          setEditingCleanerName('')
+                                          resetEditCleanerForm({ name: '' })
                                         }
                                       },
                                       () => {

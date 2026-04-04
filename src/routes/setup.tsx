@@ -17,7 +17,6 @@ export const Route = createFileRoute('/setup')({
 function SetupRoute() {
   const data = Route.useLoaderData()
   const router = useRouter()
-  const [password, setPassword] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,13 +43,11 @@ function SetupRoute() {
   if (!data.authenticated) {
     return (
       <AuthView
-        password={password}
-        setPassword={setPassword}
         busy={busyKey === 'login'}
         error={error}
         title="Open the support tools"
         body="Sign in to turn on phone reminders, share the week, or update homes and cleaners."
-        onSubmit={() => {
+        onSubmit={(password) => {
           void runAction('login', async () => {
             await postJson('/api/auth/login', { password })
           })

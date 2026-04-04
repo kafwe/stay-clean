@@ -1,20 +1,41 @@
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { loginSchema } from '#/lib/validation'
+
 export function AuthView({
-  password,
-  setPassword,
   onSubmit,
   busy,
   error,
   title = 'Open the weekly planner',
   body = 'Sign in to review the week, make changes, and share the final plan.',
 }: {
-  password: string
-  setPassword: (value: string) => void
-  onSubmit: () => void
+  onSubmit: (password: string) => void
   busy: boolean
   error: string | null
   title?: string
   body?: string
 }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    clearErrors,
+  } = useForm<{ password: string }>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      password: '',
+    },
+  })
+
+  useEffect(() => {
+    if (!error) {
+      return
+    }
+
+    clearErrors('password')
+  }, [clearErrors, error])
+
   return (
     <main className="page-wrap px-4 py-8 sm:py-12">
       <section className="ledger-panel grid gap-10 overflow-hidden rounded-[2rem] px-6 py-8 sm:px-10 sm:py-12 lg:grid-cols-[1.2fr_0.8fr]">
@@ -50,21 +71,30 @@ export function AuthView({
             <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">{body}</p>
             <form
               className="mt-6 space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault()
-                onSubmit()
-              }}
+              noValidate
+              onSubmit={handleSubmit((values) => {
+                onSubmit(values.password)
+              })}
             >
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-[var(--ink-strong)]">
                   Password
                 </span>
+                {errors.password?.message ? (
+                  <p className="mb-2 text-xs text-[var(--accent-deep)]">{errors.password.message}</p>
+                ) : null}
                 <input
                   type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  {...register('password', {
+                    onChange: () => {
+                      if (errors.password) {
+                        clearErrors('password')
+                      }
+                    },
+                  })}
                   className="field"
                   placeholder="Enter the manager password"
+                  aria-invalid={errors.password ? 'true' : undefined}
                 />
               </label>
               <button type="submit" className="action-primary w-full" disabled={busy}>
