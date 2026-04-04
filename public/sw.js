@@ -1,11 +1,7 @@
-self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting()
-  }
-})
-
-const APP_CACHE = 'stayclean-app-v2'
-const RUNTIME_CACHE = 'stayclean-runtime-v2'
+const APP_CACHE = 'stayclean-app-v3'
+const PAGE_CACHE = 'stayclean-pages-v1'
+const DATA_CACHE = 'stayclean-data-v1'
+const ASSET_CACHE = 'stayclean-assets-v1'
 const OFFLINE_URL = '/offline.html'
 const APP_ASSETS = [
   '/manifest.json',
@@ -21,6 +17,22 @@ const APP_ASSETS = [
   '/splash/apple-splash-2796x1290.png',
   OFFLINE_URL,
 ]
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting())
+    return
+  }
+
+  if (event.data?.type === 'CACHE_URLS' && Array.isArray(event.data.urls)) {
+    event.waitUntil(cacheUrls(event.data.urls))
+    return
+  }
+
+  if (event.data?.type === 'CLEAR_DYNAMIC_CACHES') {
+    event.waitUntil(clearDynamicCaches())
+  }
+})
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -41,7 +53,13 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) =>
         Promise.all(
           cacheNames
-            .filter((cacheName) => cacheName !== APP_CACHE && cacheName !== RUNTIME_CACHE)
+            .filter(
+              (cacheName) =>
+                cacheName !== APP_CACHE &&
+                cacheName !== PAGE_CACHE &&
+                cacheName !== DATA_CACHE &&
+                cacheName !== ASSET_CACHE,
+            )
             .map((cacheName) => caches.delete(cacheName)),
         ),
       )
@@ -70,7 +88,18 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (request.destination === 'style' || request.destination === 'script' || request.destination === 'font' || request.destination === 'image' || requestUrl.pathname.startsWith('/assets/')) {
+  if (requestUrl.pathname.startsWith('/_serverFn/')) {
+    event.respondWith(networkFirstData(request))
+    return
+  }
+
+  if (
+    request.destination === 'style' ||
+    request.destination === 'script' ||
+    request.destination === 'font' ||
+    request.destination === 'image' ||
+    requestUrl.pathname.startsWith('/assets/')
+  ) {
     event.respondWith(staleWhileRevalidate(request))
     return
   }
@@ -79,15 +108,55 @@ self.addEventListener('fetch', (event) => {
 })
 
 async function networkFirstNavigation(request) {
+  const pageCache = await caches.open(PAGE_CACHE)
+
   try {
-    return await fetch(request)
+    const response = await fetch(request)
+    if (response.ok) {
+      pageCache.put(request, response.clone())
+    }
+    return response
   } catch {
+    const cachedResponse = await pageCache.match(request)
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
     const offlineResponse = await caches.match(OFFLINE_URL)
     if (offlineResponse) {
       return offlineResponse
     }
 
     return Response.error()
+  }
+}
+
+async function networkFirstData(request) {
+  const dataCache = await caches.open(DATA_CACHE)
+
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      dataCache.put(request, response.clone())
+    }
+    return response
+  } catch {
+    const cachedResponse = await dataCache.match(request)
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
+    return Response.json(
+      {
+        error: 'Offline and no cached data is available yet.',
+      },
+      {
+        status: 503,
+        headers: {
+          'content-type': 'application/json',
+        },
+      },
+    )
   }
 }
 
@@ -99,26 +168,88 @@ async function cacheFirst(request) {
 
   const response = await fetch(request)
   if (response.ok) {
-    const runtimeCache = await caches.open(RUNTIME_CACHE)
-    runtimeCache.put(request, response.clone())
+    const assetCache = await caches.open(ASSET_CACHE)
+    assetCache.put(request, response.clone())
   }
   return response
 }
 
 async function staleWhileRevalidate(request) {
-  const runtimeCache = await caches.open(RUNTIME_CACHE)
-  const cached = await runtimeCache.match(request)
+  const assetCache = await caches.open(ASSET_CACHE)
+  const cached = await assetCache.match(request)
 
   const networkRequest = fetch(request)
     .then((response) => {
       if (response.ok) {
-        runtimeCache.put(request, response.clone())
+        assetCache.put(request, response.clone())
       }
       return response
     })
     .catch(() => cached)
 
   return cached || networkRequest
+}
+
+async function cacheUrls(urls) {
+  const origin = self.location.origin
+  const warmUrls = Array.from(
+    new Set(
+      urls.filter((url) => {
+        try {
+          return new URL(url, origin).origin === origin
+        } catch {
+          return false
+        }
+      }),
+    ),
+  )
+
+  await Promise.all(
+    warmUrls.map(async (url) => {
+      const absoluteUrl = new URL(url, origin)
+      const request = new Request(absoluteUrl.toString(), {
+        credentials: 'same-origin',
+      })
+
+      try {
+        const response = await fetch(request)
+        if (!response.ok) {
+          return
+        }
+
+        const targetCache = selectCache(request)
+        const cache = await caches.open(targetCache)
+        await cache.put(request, response.clone())
+      } catch {
+        // Ignore warm-cache failures so install/activation stays resilient.
+      }
+    }),
+  )
+}
+
+function selectCache(request) {
+  const url = new URL(request.url)
+  const isStaticAsset =
+    url.pathname.startsWith('/assets/') ||
+    /\.(?:css|js|mjs|woff2?|png|jpe?g|svg|ico|json|txt)$/i.test(url.pathname)
+
+  if (url.pathname.startsWith('/_serverFn/')) {
+    return DATA_CACHE
+  }
+
+  if (request.mode === 'navigate' || !isStaticAsset) {
+    return PAGE_CACHE
+  }
+
+  return ASSET_CACHE
+}
+
+async function clearDynamicCaches() {
+  await Promise.all([
+    caches.delete(PAGE_CACHE),
+    caches.delete(DATA_CACHE),
+    caches.delete(ASSET_CACHE),
+  ])
 }
 
 self.addEventListener('push', (event) => {

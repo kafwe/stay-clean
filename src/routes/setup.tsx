@@ -111,6 +111,10 @@ function SetupRoute() {
                 onClick={() =>
                   runAction('logout', async () => {
                     await postJson('/api/auth/logout')
+                    if ('serviceWorker' in navigator) {
+                      const registration = await navigator.serviceWorker.ready.catch(() => null)
+                      registration?.active?.postMessage({ type: 'CLEAR_DYNAMIC_CACHES' })
+                    }
                   })
                 }
               >

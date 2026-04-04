@@ -4,6 +4,36 @@ function isServiceWorkerSupported() {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator
 }
 
+function warmOfflineCache(registration: ServiceWorkerRegistration) {
+  const activeWorker = registration.active ?? registration.waiting ?? registration.installing
+  if (!activeWorker) {
+    return
+  }
+
+  const sameOriginUrls = performance
+    .getEntriesByType('resource')
+    .map((entry) => entry.name)
+    .filter((url) => {
+      try {
+        return new URL(url, window.location.href).origin === window.location.origin
+      } catch {
+        return false
+      }
+    })
+
+  activeWorker.postMessage({
+    type: 'CACHE_URLS',
+    urls: Array.from(
+      new Set([
+        `${window.location.pathname}${window.location.search}`,
+        '/manifest.json',
+        '/offline.html',
+        ...sameOriginUrls,
+      ]),
+    ),
+  })
+}
+
 export function ServiceWorkerClient() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null)
 
@@ -44,6 +74,7 @@ export function ServiceWorkerClient() {
       .then((resolvedRegistration) => {
         registration = resolvedRegistration
         attachWaitingWorker(resolvedRegistration)
+        warmOfflineCache(resolvedRegistration)
 
         onUpdateFound = () => {
           watchInstallingWorker(resolvedRegistration)
@@ -58,6 +89,10 @@ export function ServiceWorkerClient() {
             // Ignore transient update check failures.
           })
         }, 60 * 60 * 1000)
+
+        void navigator.serviceWorker.ready.then(warmOfflineCache).catch(() => {
+          // Ignore warm-cache failures; the SW can still populate caches on normal traffic.
+        })
       })
       .catch(() => {
         setWaitingWorker(null)
