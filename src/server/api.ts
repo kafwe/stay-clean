@@ -488,6 +488,19 @@ function inferBuildingId(address: string) {
   return (primarySegment || address).slice(0, 80)
 }
 
+function queueDistanceMatrixSeed(c: { executionCtx?: { waitUntil?: (promise: Promise<unknown>) => void } }) {
+  const seedTask = seedDistanceMatrix().catch((error) => {
+    console.error('Distance matrix auto-refresh failed', error)
+  })
+
+  if (c.executionCtx?.waitUntil) {
+    c.executionCtx.waitUntil(seedTask)
+    return
+  }
+
+  void seedTask
+}
+
 app.post(
   '/api/auth/login',
   zValidator(
@@ -583,7 +596,7 @@ app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c)
     airbnbIcalUrl: payload.airbnbIcalUrl || null,
   })
 
-  await seedDistanceMatrix()
+  queueDistanceMatrixSeed(c)
 
   return c.json({ ok: true })
 })
@@ -610,7 +623,7 @@ app.post(
       longitude: payload.longitude,
     })
 
-    await seedDistanceMatrix()
+    queueDistanceMatrixSeed(c)
 
     return c.json({ ok: true })
   },

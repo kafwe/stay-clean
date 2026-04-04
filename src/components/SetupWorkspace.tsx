@@ -128,7 +128,8 @@ export function SetupWorkspace({
 
   useEffect(() => {
     const trimmedAddress = address.trim()
-    const shouldQuerySuggestions = trimmedAddress.length >= 3 && activeTool === 'home'
+    const shouldQuerySuggestions =
+      trimmedAddress.length >= 3 && activeTool === 'home' && addressCoordinates === null
 
     if (!shouldQuerySuggestions) {
       setAddressSuggestions([])
@@ -177,7 +178,7 @@ export function SetupWorkspace({
       controller.abort()
       window.clearTimeout(debounceTimer)
     }
-  }, [address, activeTool, preferredCountryCode])
+  }, [address, activeTool, addressCoordinates, preferredCountryCode])
 
   async function runOptimisticCleanerAction(
     key: string,
@@ -346,7 +347,7 @@ export function SetupWorkspace({
               {isAddressSuggestionsLoading ? (
                 <p className="text-xs text-[var(--ink-soft)]">Finding matching addresses...</p>
               ) : null}
-              {!isAddressSuggestionsLoading && addressSuggestions.length > 0 ? (
+              {!isAddressSuggestionsLoading && addressSuggestions.length > 0 && !addressCoordinates ? (
                 <p className="text-xs text-[var(--ink-soft)]">Select a suggested address to save exact coordinates.</p>
               ) : null}
               <input
