@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, Link, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ServiceWorkerClient } from '#/components/ServiceWorkerClient'
@@ -100,7 +100,23 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: RootNotFound,
 })
+
+function RootNotFound() {
+  return (
+    <main className="mx-auto max-w-xl px-6 py-14">
+      <p className="eyebrow">Page not found</p>
+      <h1 className="mt-2 text-2xl font-semibold text-(--ink-strong)">This page is not available</h1>
+      <p className="mt-3 text-sm leading-7 text-(--ink-soft)">
+        The link may be old, or the page may have moved.
+      </p>
+      <Link to="/" className="action-secondary mt-5 inline-flex">
+        Go to dashboard
+      </Link>
+    </main>
+  )
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
