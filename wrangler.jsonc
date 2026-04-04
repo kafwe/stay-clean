@@ -1,21 +1,31 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "stay-clean",
-  "main": "src/server.ts",
-  "compatibility_date": "2026-03-20",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "enabled": true
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "stay-clean",
-      "database_id": "replace-with-your-d1-database-id",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "triggers": {
-    "crons": ["0 */4 * * *", "0 12 * * SUN"]
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "stay-clean",
+	"main": "src/server.ts",
+	"compatibility_date": "2026-03-20",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "stay-clean",
+			"database_id": "888a3467-ea8c-4c9e-955a-53d9d50448f6",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "stay_clean",
+			"database_name": "stay-clean",
+			"database_id": "888a3467-ea8c-4c9e-955a-53d9d50448f6"
+		}
+	],
+	"triggers": {
+		"crons": [
+			"0 */4 * * *",
+			"0 12 * * SUN"
+		]
+	}
 }
