@@ -582,6 +582,9 @@ app.post('/api/setup/apartments', zValidator('json', apartmentSchema), async (c)
     bookingIcalUrl: payload.bookingIcalUrl || null,
     airbnbIcalUrl: payload.airbnbIcalUrl || null,
   })
+
+  await seedDistanceMatrix()
+
   return c.json({ ok: true })
 })
 
@@ -606,6 +609,9 @@ app.post(
       latitude: payload.latitude,
       longitude: payload.longitude,
     })
+
+    await seedDistanceMatrix()
+
     return c.json({ ok: true })
   },
 )
@@ -699,8 +705,8 @@ app.post('/api/suggestions/:id/reject', async (c) => {
 })
 
 app.post('/api/setup/distance-matrix/seed', async (c) => {
-  await seedDistanceMatrix()
-  return c.json({ ok: true })
+  const result = await seedDistanceMatrix()
+  return c.json(result)
 })
 
 app.post('/api/system/run-sync', zValidator('json', weekSchema), async (c) => {

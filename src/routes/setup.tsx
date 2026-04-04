@@ -126,8 +126,6 @@ function SetupRoute() {
         <SetupWorkspace
           apartments={data.apartments}
           cleaners={data.cleaners}
-          distanceMatrixPairs={data.distanceMatrixPairs}
-          apartmentsMissingCoordinates={data.apartmentsMissingCoordinates}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}

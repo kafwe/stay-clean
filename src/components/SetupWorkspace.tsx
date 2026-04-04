@@ -68,8 +68,6 @@ async function getJson<TPayload>(url: string): Promise<TPayload> {
 export function SetupWorkspace({
   apartments,
   cleaners,
-  distanceMatrixPairs,
-  apartmentsMissingCoordinates,
   busyKey,
   error,
   setBusyKey,
@@ -78,8 +76,6 @@ export function SetupWorkspace({
 }: {
   apartments: Apartment[]
   cleaners: Cleaner[]
-  distanceMatrixPairs: number
-  apartmentsMissingCoordinates: number
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
@@ -103,16 +99,13 @@ export function SetupWorkspace({
   const [localCleaners, setLocalCleaners] = useState(cleaners)
   const [editingCleanerId, setEditingCleanerId] = useState<string | null>(null)
   const [editingCleanerName, setEditingCleanerName] = useState('')
-  const [activeTool, setActiveTool] = useState<
-    'home' | 'cleaner' | 'travel' | null
-  >(null)
+  const [activeTool, setActiveTool] = useState<'home' | 'cleaner' | null>(null)
   const toolOptions: Array<{
-    value: 'home' | 'cleaner' | 'travel'
+    value: 'home' | 'cleaner'
     label: string
   }> = [
     { value: 'home', label: 'Add a home' },
     { value: 'cleaner', label: 'Add a cleaner' },
-    { value: 'travel', label: 'Refresh travel times' },
   ]
 
   async function runAction(key: string, action: () => Promise<void>) {
@@ -693,26 +686,6 @@ export function SetupWorkspace({
             </form>
           ) : null}
 
-          {activeTool === 'travel' ? (
-            <div className="fold-panel space-y-3">
-              <p className="text-sm leading-7 text-[var(--ink-soft)]">
-                {distanceMatrixPairs} saved travel pairs. {apartmentsMissingCoordinates} home
-                {apartmentsMissingCoordinates === 1 ? '' : 's'} still need a location.
-              </p>
-              <button
-                type="button"
-                className="action-secondary"
-                disabled={busyKey === 'seed-distance'}
-                onClick={() => {
-                  void runAction('seed-distance', async () => {
-                    await postJson('/api/setup/distance-matrix/seed')
-                  })
-                }}
-              >
-                {busyKey === 'seed-distance' ? 'Updating...' : 'Refresh travel times'}
-              </button>
-            </div>
-          ) : null}
         </div>
       </article>
 

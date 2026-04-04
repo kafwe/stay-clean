@@ -568,7 +568,19 @@ export async function seedDistanceMatrix() {
   )
 
   if (apartments.length < 2) {
-    throw new Error('Add coordinates to at least two apartments before seeding the matrix')
+    await replaceDistanceMatrix([])
+    await recordSyncEvent('distance-matrix-seed', 'skipped', {
+      apartments: apartments.length,
+      pairs: 0,
+      reason: 'not-enough-coordinates',
+    })
+
+    return {
+      ok: true,
+      status: 'skipped' as const,
+      apartments: apartments.length,
+      pairs: 0,
+    }
   }
 
   const entries: Array<{ fromApartmentId: string; toApartmentId: string; minutes: number }> = []
@@ -601,6 +613,13 @@ export async function seedDistanceMatrix() {
     pairs: entries.length,
     mode: 'estimated-haversine',
   })
+
+  return {
+    ok: true,
+    status: 'ok' as const,
+    apartments: apartments.length,
+    pairs: entries.length,
+  }
 }
 
 export async function regenerateWeekFromICal(
