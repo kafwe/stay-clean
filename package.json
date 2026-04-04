@@ -10,6 +10,7 @@
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
+    "assets:pwa": "node scripts/generate-pwa-assets.mjs",
     "cf-typegen": "wrangler types",
     "seed:mock": "node scripts/seed-mock-data.mjs",
     "test": "vitest run"
