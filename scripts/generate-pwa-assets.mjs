@@ -6,6 +6,9 @@ const rootDir = path.resolve(import.meta.dirname, '..')
 const publicDir = path.join(rootDir, 'public')
 const splashDir = path.join(publicDir, 'splash')
 const iconSource = path.join(publicDir, 'icon-master.svg')
+const iconBackground = '#f7f2e8'
+const iconInset = 64
+const iconSourceSize = 1024
 
 const iconSizes = [
   { output: 'logo192.png', size: 192 },
@@ -27,7 +30,14 @@ async function generateIcons() {
   await Promise.all(
     iconSizes.map(async ({ output, size }) => {
       await sharp(iconSource)
+        .extract({
+          left: iconInset,
+          top: iconInset,
+          width: iconSourceSize - iconInset * 2,
+          height: iconSourceSize - iconInset * 2,
+        })
         .resize(size, size)
+        .flatten({ background: iconBackground })
         .png()
         .toFile(path.join(publicDir, output))
     }),
@@ -46,7 +56,7 @@ async function generateSplashScreen({ output, width, height }) {
       width,
       height,
       channels: 4,
-      background: '#f7f2e8',
+      background: iconBackground,
     },
   })
     .composite([
