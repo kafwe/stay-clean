@@ -8,6 +8,7 @@ export function MobileAppShell({
   children,
   activeTab,
   weekStart,
+  pendingReviewCount = 0,
   floatingAction,
   onSwipeLeft,
   onSwipeRight,
@@ -15,6 +16,7 @@ export function MobileAppShell({
   children: React.ReactNode
   activeTab: MobileTab
   weekStart: string
+  pendingReviewCount?: number
   floatingAction?: React.ReactNode
   onSwipeLeft?: () => void
   onSwipeRight?: () => void
@@ -157,9 +159,16 @@ export function MobileAppShell({
             <Link
               to="/review"
               search={{ week: weekStart }}
-              className={`bottom-nav-link ${activeTab === 'changes' ? 'is-active' : ''}`}
+              className={`bottom-nav-link ${activeTab === 'changes' ? 'is-active' : ''} ${pendingReviewCount > 0 ? 'has-alert' : ''}`}
             >
-              <ClipboardList size={18} />
+              <span className="bottom-nav-icon-wrap">
+                <ClipboardList size={18} />
+                {pendingReviewCount > 0 ? (
+                  <span className="bottom-nav-badge" aria-label={`${pendingReviewCount} review items waiting`}>
+                    {pendingReviewCount > 9 ? '9+' : pendingReviewCount}
+                  </span>
+                ) : null}
+              </span>
               <span>Changes</span>
             </Link>
             <Link

@@ -19,6 +19,7 @@ function SetupRoute() {
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const pendingReviewCount = data.changeSets.length + data.manualReviews.length
 
   async function refresh() {
     await router.invalidate({ sync: true })
@@ -75,7 +76,8 @@ function SetupRoute() {
   }
 
   return (
-    <MobileAppShell activeTab="more" weekStart={data.weekStart}>
+    <MobileAppShell activeTab="more" weekStart={data.weekStart} pendingReviewCount={pendingReviewCount}>
+      <div className="route-stage route-stage-setup">
       <WeekPanelHeader
         eyebrow="Support tools"
         title="More"
@@ -87,21 +89,19 @@ function SetupRoute() {
         onCurrent={() => {}}
         onNext={() => {}}
       >
-        <article className="overview-card">
+        <article className="overview-card overview-card-setup">
           <div className="overview-copy">
             <p className="eyebrow">Support tools</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
-              Use these only when needed
-            </h2>
-            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
-              The weekly plan stays in the main view. This screen is for reminders, sharing, and setup.
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Background tasks and team setup</h2>
+            <p className="support-overview-copy">
+              The weekly plan lives on the main screen. This area is intentionally quieter, for reminders and one-off setup work.
             </p>
           </div>
         </article>
       </WeekPanelHeader>
 
-      <section className="content-stack">
-        <article className="ledger-panel rounded-[1.75rem] p-5">
+      <section className="content-stack route-stack route-stack-setup">
+        <article className="ledger-panel rounded-[1.75rem] p-5 panel-soft">
           <p className="eyebrow">Common tasks</p>
           <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Quick tools</h2>
           <div className="mt-5 space-y-3">
@@ -137,11 +137,8 @@ function SetupRoute() {
         </article>
 
         <SetupWorkspace
-          weekStart={data.weekStart}
-          weekLabel={data.weekLabel}
           apartments={data.apartments}
           cleaners={data.cleaners}
-          weekCleanerAvailability={data.weekCleanerAvailability}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}
@@ -149,6 +146,7 @@ function SetupRoute() {
           onDone={refresh}
         />
       </section>
+      </div>
     </MobileAppShell>
   )
 }

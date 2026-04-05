@@ -22,8 +22,9 @@ function ReviewRoute() {
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [manualSuccess, setManualSuccess] = useState<string | null>(null)
   const dateOptions = weekDates(data.weekStart)
+  const pendingReviewCount = data.changeSets.length + data.manualReviews.length
 
   useEffect(() => {
     setManualDate((currentDate) => (dateOptions.includes(currentDate) ? currentDate : dateOptions[0] ?? ''))
@@ -36,7 +37,6 @@ function ReviewRoute() {
   async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
     setBusyKey(key)
     setError(null)
-    setNotice(null)
 
     try {
       await action()
@@ -87,6 +87,7 @@ function ReviewRoute() {
     <MobileAppShell
       activeTab="changes"
       weekStart={data.weekStart}
+      pendingReviewCount={pendingReviewCount}
       onSwipeLeft={() => moveWeek(1)}
       onSwipeRight={() => moveWeek(-1)}
       floatingAction={
@@ -98,8 +99,9 @@ function ReviewRoute() {
         />
       }
     >
+      <div className="route-stage route-stage-review">
       <WeekPanelHeader
-        eyebrow="Changes for this week"
+        eyebrow="Decision queue"
         title={data.weekLabel}
         status={data.weekStatus}
         showThisWeekButton={Boolean(search.week)}
@@ -107,27 +109,28 @@ function ReviewRoute() {
         onCurrent={jumpToCurrentWeek}
         onNext={() => moveWeek(1)}
       >
-        <article className="overview-card">
+        <article className="overview-card overview-card-review">
           <div className="overview-copy">
             <p className="eyebrow">What needs review</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">
-              {data.changeSets.length} {data.changeSets.length === 1 ? 'change' : 'changes'} waiting
-            </h2>
-            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
-              {data.manualReviews.length} {data.manualReviews.length === 1 ? 'long stay also needs' : 'long stays also need'} a quick check.
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Decide the plan, then share it</h2>
+            <div className="review-summary-strip">
+              <span className="review-count-pill">
+                {data.changeSets.length} {data.changeSets.length === 1 ? 'change' : 'changes'} waiting
+              </span>
+              <span className="review-count-pill subtle">
+                {data.manualReviews.length} {data.manualReviews.length === 1 ? 'stay to check' : 'stays to check'}
+              </span>
+            </div>
+            <p className="review-emphasis-copy">
+              Handle suggested changes first, then add any extra cleans that still need to happen this week.
             </p>
           </div>
         </article>
       </WeekPanelHeader>
 
       {error ? <section className="error-banner">{error}</section> : null}
-      {notice ? (
-        <section className="success-banner" role="status" aria-live="polite">
-          {notice}
-        </section>
-      ) : null}
 
-      <section className="content-stack">
+      <section className="content-stack route-stack route-stack-review">
         <ReviewPanel
           title="Suggested changes"
           emptyCopy="No changes need your approval right now."
@@ -150,8 +153,19 @@ function ReviewRoute() {
           taskDate={manualDate}
           apartmentId={manualApartmentId}
           busy={busyKey === 'add-manual'}
-          onTaskDateChange={setManualDate}
-          onApartmentChange={setManualApartmentId}
+          successMessage={manualSuccess}
+          onTaskDateChange={(value) => {
+            setManualDate(value)
+            if (manualSuccess) {
+              setManualSuccess(null)
+            }
+          }}
+          onApartmentChange={(value) => {
+            setManualApartmentId(value)
+            if (manualSuccess) {
+              setManualSuccess(null)
+            }
+          }}
           onSubmit={() => {
             const selectedApartment = data.apartments.find((apartment) => apartment.id === manualApartmentId)
             const apartmentName = selectedApartment?.colloquialName ?? selectedApartment?.name ?? 'the selected home'
@@ -169,13 +183,14 @@ function ReviewRoute() {
               () => {
                 setManualDate(dateOptions[0] ?? '')
                 setManualApartmentId('')
-                setNotice(`Added a clean for ${apartmentName} on ${formatDayLabel(manualDate)}.`)
+                setManualSuccess(`Added a clean for ${apartmentName} on ${formatDayLabel(manualDate)}.`)
               },
             )
           }}
         />
         <ManualReviewPanel items={data.manualReviews} />
       </section>
+      </div>
     </MobileAppShell>
   )
 }

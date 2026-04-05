@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Plus } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { formatDayLabel } from '#/lib/date'
 import type { Apartment, ChangeSet, ManualReviewItem, ScheduleDayGroup, ScheduleStatus } from '#/lib/types'
 
@@ -236,6 +237,108 @@ export function DayCard({
   )
 }
 
+function getFocusableElements(container: HTMLElement | null) {
+  if (!container) {
+    return []
+  }
+
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute('aria-hidden'))
+}
+
+function SheetDialog({
+  open,
+  onClose,
+  ariaLabel,
+  panelClassName = '',
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  ariaLabel: string
+  panelClassName?: string
+  children: React.ReactNode
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const panel = panelRef.current
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const focusTarget =
+      panel?.querySelector<HTMLElement>('[data-autofocus="true"]') ?? getFocusableElements(panel)[0]
+    focusTarget?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      const focusable = getFocusableElements(panel)
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const activeElement = document.activeElement
+
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open, onClose])
+
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div
+      className="sheet-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={ariaLabel}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div ref={panelRef} className={`sheet-panel ${panelClassName}`}>
+        <div className="sheet-grabber" aria-hidden="true" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function ReviewPanel({
   title,
   emptyCopy,
@@ -251,6 +354,30 @@ export function ReviewPanel({
   onApprove: (changeSetId: string) => Promise<void>
   onReject: (changeSetId: string) => Promise<void>
 }) {
+  const getChangeReasonLabel = (reason: ChangeSet['payload']['changes'][number]['reason']) => {
+    if (reason === 'added') {
+      return 'Added'
+    }
+
+    if (reason === 'removed') {
+      return 'Removed'
+    }
+
+    return 'Reassigned'
+  }
+
+  const getChangeOutcomeLabel = (change: ChangeSet['payload']['changes'][number]) => {
+    if (change.reason === 'added') {
+      return `New clean for ${change.afterCleaner ?? 'Unassigned'}`
+    }
+
+    if (change.reason === 'removed') {
+      return `Remove ${change.beforeCleaner ?? 'Unassigned'} from this clean`
+    }
+
+    return `${change.beforeCleaner ?? 'Unassigned'} -> ${change.afterCleaner ?? 'Unassigned'}`
+  }
+
   return (
     <article className="ledger-panel rounded-[1.75rem] p-5">
       <p className="eyebrow">Waiting for you</p>
@@ -260,18 +387,28 @@ export function ReviewPanel({
         {changeSets.length ? (
           changeSets.map((changeSet) => (
             <div key={changeSet.id} className="change-card">
-              <h3 className="text-base font-semibold text-[var(--ink-strong)]">{changeSet.title}</h3>
+              <div className="change-card-top">
+                <h3 className="text-base font-semibold text-[var(--ink-strong)]">{changeSet.title}</h3>
+                <span className="cleaner-chip subtle-chip">
+                  {changeSet.payload.changes.length}{' '}
+                  {changeSet.payload.changes.length === 1 ? 'update' : 'updates'}
+                </span>
+              </div>
               <p className="mt-1 text-sm text-[var(--ink-soft)]">{changeSet.summary}</p>
 
-              <div className="mt-4 space-y-2">
+              <div className="change-list">
                 {changeSet.payload.changes.map((change) => (
                   <div key={`${change.date}-${change.apartmentName}`} className="change-row">
-                    <span>
-                      {change.date} • {change.apartmentName}
-                    </span>
-                    <span>
-                      {change.beforeCleaner ?? '-'} → {change.afterCleaner ?? '-'}
-                    </span>
+                    <div className="change-row-main">
+                      <div className="change-row-meta">
+                        <span className={`change-reason-pill is-${change.reason}`}>
+                          {getChangeReasonLabel(change.reason)}
+                        </span>
+                        <span className="change-row-date">{formatDayLabel(change.date)}</span>
+                      </div>
+                      <p className="change-row-title">{change.apartmentName}</p>
+                    </div>
+                    <p className="change-row-outcome">{getChangeOutcomeLabel(change)}</p>
                   </div>
                 ))}
               </div>
@@ -346,6 +483,7 @@ export function ManualJobPanel({
   taskDate,
   apartmentId,
   busy,
+  successMessage,
   onTaskDateChange,
   onApartmentChange,
   onSubmit,
@@ -355,17 +493,23 @@ export function ManualJobPanel({
   taskDate: string
   apartmentId: string
   busy: boolean
+  successMessage?: string | null
   onTaskDateChange: (value: string) => void
   onApartmentChange: (value: string) => void
   onSubmit: () => void
 }) {
   return (
-    <article className="ledger-panel rounded-[1.75rem] p-5">
+    <article className="ledger-panel rounded-[1.75rem] p-5 panel-feature panel-review">
       <p className="eyebrow">Add it yourself</p>
       <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra clean</h2>
       <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
         Use this when a clean needs to be added by hand for the week.
       </p>
+      {successMessage ? (
+        <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
+          {successMessage}
+        </section>
+      ) : null}
 
       <form
         className="mt-5 space-y-4"
@@ -404,6 +548,7 @@ export function ManualJobSheet({
   apartments,
   apartmentId,
   busy,
+  successMessage,
   onApartmentChange,
   onClose,
   onSubmit,
@@ -413,17 +558,13 @@ export function ManualJobSheet({
   apartments: Apartment[]
   apartmentId: string
   busy: boolean
+  successMessage?: string | null
   onApartmentChange: (value: string) => void
   onClose: () => void
   onSubmit: () => void
 }) {
-  if (!open) {
-    return null
-  }
-
   return (
-    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add an extra clean">
-      <div className="sheet-panel">
+    <SheetDialog open={open} onClose={onClose} ariaLabel="Add an extra clean" panelClassName="sheet-panel-feature">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">Add an extra clean</p>
@@ -437,6 +578,11 @@ export function ManualJobSheet({
         <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
           Add a clean for this day and it will appear in the week straight away.
         </p>
+        {successMessage ? (
+          <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
+            {successMessage}
+          </section>
+        ) : null}
 
         <form
           className="mt-5 space-y-4"
@@ -445,7 +591,12 @@ export function ManualJobSheet({
             onSubmit()
           }}
         >
-          <select className="field" value={apartmentId} onChange={(event) => onApartmentChange(event.target.value)}>
+          <select
+            className="field"
+            value={apartmentId}
+            onChange={(event) => onApartmentChange(event.target.value)}
+            data-autofocus="true"
+          >
             <option value="">Choose apartment</option>
             {apartments.map((apartment) => (
               <option key={apartment.id} value={apartment.id}>
@@ -462,8 +613,7 @@ export function ManualJobSheet({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </SheetDialog>
   )
 }
 
@@ -506,13 +656,8 @@ export function QuickEditSheet({
   onSave: () => void
   onDelete: () => void
 }) {
-  if (!open) {
-    return null
-  }
-
   return (
-    <div className="sheet-backdrop" role="dialog" aria-modal="true">
-      <div className="sheet-panel">
+    <SheetDialog open={open} onClose={onClose} ariaLabel="Quick edit clean">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">Quick edit</p>
@@ -532,7 +677,12 @@ export function QuickEditSheet({
         <div className="mt-5 space-y-4">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-[var(--ink-strong)]">Cleaner</span>
-            <select className="field" value={cleanerId} onChange={(event) => onCleanerChange(event.target.value)}>
+            <select
+              className="field"
+              value={cleanerId}
+              onChange={(event) => onCleanerChange(event.target.value)}
+              data-autofocus="true"
+            >
               <option value="">Unassigned</option>
               {cleaners.map((cleaner) => (
                 <option key={cleaner.id} value={cleaner.id}>
@@ -585,7 +735,6 @@ export function QuickEditSheet({
             {saving ? 'Saving...' : 'Save changes'}
           </button>
         </div>
-      </div>
-    </div>
+    </SheetDialog>
   )
 }
