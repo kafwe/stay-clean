@@ -40,6 +40,26 @@ function SetupRoute() {
     }
   }
 
+  async function signOut() {
+    setBusyKey('logout')
+    setError(null)
+
+    try {
+      await postJson('/api/auth/logout')
+
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready.catch(() => null)
+        registration?.active?.postMessage({ type: 'CLEAR_DYNAMIC_CACHES' })
+      }
+
+      // Force a full navigation so the next screen is rendered with the cleared auth cookie.
+      window.location.replace('/')
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setBusyKey(null)
+    }
+  }
+
   if (!data.authenticated) {
     return (
       <AuthView
@@ -108,15 +128,9 @@ function SetupRoute() {
                 type="button"
                 className="action-danger"
                 disabled={busyKey === 'logout'}
-                onClick={() =>
-                  runAction('logout', async () => {
-                    await postJson('/api/auth/logout')
-                    if ('serviceWorker' in navigator) {
-                      const registration = await navigator.serviceWorker.ready.catch(() => null)
-                      registration?.active?.postMessage({ type: 'CLEAR_DYNAMIC_CACHES' })
-                    }
-                  })
-                }
+                onClick={() => {
+                  void signOut()
+                }}
               >
                 {busyKey === 'logout' ? 'Signing out...' : 'Sign out'}
               </button>
