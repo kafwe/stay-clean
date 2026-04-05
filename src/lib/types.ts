@@ -31,6 +31,11 @@ export interface CleanerAvailability {
   status: 'available' | 'off'
 }
 
+export interface CleanerWeekAvailability {
+  cleanerId: string
+  status: 'available' | 'partial' | 'off'
+}
+
 export interface Booking {
   id: string
   apartmentId: string
@@ -158,6 +163,7 @@ export interface DashboardData {
   vapidPublicKey: string | null
   apartments: Apartment[]
   cleaners: Cleaner[]
+  weekCleanerAvailability: CleanerWeekAvailability[]
   dayGroups: ScheduleDayGroup[]
   changeSets: ChangeSet[]
   manualReviews: ManualReviewItem[]

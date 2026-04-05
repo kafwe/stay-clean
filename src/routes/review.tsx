@@ -4,7 +4,7 @@ import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
-import { shiftWeek, weekDates } from '#/lib/date'
+import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
 
 export const Route = createFileRoute('/review')({
@@ -22,6 +22,7 @@ function ReviewRoute() {
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const dateOptions = weekDates(data.weekStart)
 
   useEffect(() => {
@@ -29,18 +30,18 @@ function ReviewRoute() {
   }, [data.weekStart, dateOptions])
 
   async function refresh() {
-    startTransition(() => {
-      router.invalidate()
-    })
+    await router.invalidate({ sync: true })
   }
 
-  async function runAction(key: string, action: () => Promise<void>) {
+  async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
     setBusyKey(key)
     setError(null)
+    setNotice(null)
 
     try {
       await action()
       await refresh()
+      onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
     } finally {
@@ -120,6 +121,11 @@ function ReviewRoute() {
       </WeekPanelHeader>
 
       {error ? <section className="error-banner">{error}</section> : null}
+      {notice ? (
+        <section className="success-banner" role="status" aria-live="polite">
+          {notice}
+        </section>
+      ) : null}
 
       <section className="content-stack">
         <ReviewPanel
@@ -147,16 +153,25 @@ function ReviewRoute() {
           onTaskDateChange={setManualDate}
           onApartmentChange={setManualApartmentId}
           onSubmit={() => {
-            void runAction('add-manual', async () => {
-              await postJson('/api/setup/manual-cleans', {
-                taskDate: manualDate,
-                apartmentId: manualApartmentId || undefined,
-                isRecurring: false,
-                weekStart: data.weekStart,
-              })
-              setManualDate(dateOptions[0] ?? '')
-              setManualApartmentId('')
-            })
+            const selectedApartment = data.apartments.find((apartment) => apartment.id === manualApartmentId)
+            const apartmentName = selectedApartment?.colloquialName ?? selectedApartment?.name ?? 'the selected home'
+
+            void runAction(
+              'add-manual',
+              async () => {
+                await postJson('/api/setup/manual-cleans', {
+                  taskDate: manualDate,
+                  apartmentId: manualApartmentId || undefined,
+                  isRecurring: false,
+                  weekStart: data.weekStart,
+                })
+              },
+              () => {
+                setManualDate(dateOptions[0] ?? '')
+                setManualApartmentId('')
+                setNotice(`Added a clean for ${apartmentName} on ${formatDayLabel(manualDate)}.`)
+              },
+            )
           }}
         />
         <ManualReviewPanel items={data.manualReviews} />

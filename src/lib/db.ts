@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { addDays, parseISO } from 'date-fns'
-import { toIsoDate } from './date'
+import { toIsoDate, weekDates } from './date'
 import type {
   Apartment,
   Booking,
@@ -202,6 +202,53 @@ export async function listAvailability(weekStartIso: string): Promise<CleanerAva
     date: row.date,
     status: row.status,
   }))
+}
+
+export async function setCleanerAvailabilityForWeek(input: {
+  cleanerId: string
+  weekStartIso: string
+  isAvailable: boolean
+}) {
+  const existingCleaner = await first<{ id: string }>(
+    `SELECT id
+     FROM cleaners
+     WHERE id = ?`,
+    [input.cleanerId],
+  )
+
+  if (!existingCleaner) {
+    throw new Error('Cleaner not found')
+  }
+
+  const dates = weekDates(input.weekStartIso)
+  const weekEndIso = dates[dates.length - 1]
+
+  if (!weekEndIso) {
+    return
+  }
+
+  if (input.isAvailable) {
+    await run(
+      `DELETE FROM cleaner_availability
+       WHERE cleaner_id = ?
+         AND date BETWEEN ? AND ?`,
+      [input.cleanerId, input.weekStartIso, weekEndIso],
+    )
+    return
+  }
+
+  const statements = dates.map((date) =>
+    db()
+      .prepare(
+        `INSERT INTO cleaner_availability (id, cleaner_id, date, status)
+         VALUES (?, ?, ?, 'off')
+         ON CONFLICT(cleaner_id, date) DO UPDATE SET
+           status = excluded.status`,
+      )
+      .bind(crypto.randomUUID(), input.cleanerId, date),
+  )
+
+  await db().batch(statements)
 }
 
 export async function listManualRequests(): Promise<ManualCleanRequest[]> {

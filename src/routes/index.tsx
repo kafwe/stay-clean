@@ -22,6 +22,7 @@ function App() {
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
   const [editingAssignment, setEditingAssignment] = useState<ScheduleAssignment | null>(null)
   const [manualJobDate, setManualJobDate] = useState('')
@@ -116,18 +117,18 @@ function App() {
   }, [editingAssignment])
 
   async function refresh() {
-    startTransition(() => {
-      router.invalidate()
-    })
+    await router.invalidate({ sync: true })
   }
 
-  async function runAction(key: string, action: () => Promise<void>) {
+  async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
     setBusyKey(key)
     setError(null)
+    setNotice(null)
 
     try {
       await action()
       await refresh()
+      onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
     } finally {
@@ -243,6 +244,11 @@ function App() {
       {error ? (
         <section className="error-banner">
           {error}
+        </section>
+      ) : null}
+      {notice ? (
+        <section className="success-banner" role="status" aria-live="polite">
+          {notice}
         </section>
       ) : null}
 
@@ -382,16 +388,25 @@ function App() {
           setManualJobOpen(false)
         }}
         onSubmit={() => {
-          void runAction('add-manual', async () => {
-            await postJson('/api/setup/manual-cleans', {
-              taskDate: manualJobDate,
-              apartmentId: manualJobApartmentId || undefined,
-              isRecurring: false,
-              weekStart: data.weekStart,
-            })
-            setManualJobApartmentId('')
-            setManualJobOpen(false)
-          })
+          const selectedApartment = data.apartments.find((apartment) => apartment.id === manualJobApartmentId)
+          const apartmentName = selectedApartment?.colloquialName ?? selectedApartment?.name ?? 'the selected home'
+
+          void runAction(
+            'add-manual',
+            async () => {
+              await postJson('/api/setup/manual-cleans', {
+                taskDate: manualJobDate,
+                apartmentId: manualJobApartmentId || undefined,
+                isRecurring: false,
+                weekStart: data.weekStart,
+              })
+            },
+            () => {
+              setManualJobApartmentId('')
+              setManualJobOpen(false)
+              setNotice(`Added a clean for ${apartmentName} on ${formatDayLabel(manualJobDate)}.`)
+            },
+          )
         }}
       />
     </MobileAppShell>

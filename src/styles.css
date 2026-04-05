@@ -455,6 +455,70 @@ pre code {
   grid-template-columns: 1fr;
 }
 
+.availability-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.availability-card.is-off {
+  border-color: rgba(146, 74, 45, 0.2);
+  background: rgba(166, 90, 57, 0.06);
+}
+
+.availability-card.is-partial {
+  border-color: rgba(146, 95, 45, 0.2);
+  background: rgba(255, 247, 238, 0.84);
+}
+
+.availability-copy {
+  flex: 1 1 16rem;
+}
+
+.availability-summary {
+  margin-top: 0.65rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.availability-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.availability-toggle {
+  border-radius: 999px;
+  border: 1px solid rgba(146, 95, 45, 0.14);
+  background: rgba(255, 252, 247, 0.84);
+  padding: 0.75rem 1rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.availability-toggle.is-active {
+  border-color: rgba(84, 125, 94, 0.28);
+  background: rgba(115, 160, 123, 0.14);
+  color: #35533b;
+}
+
+.availability-toggle:hover,
+.availability-toggle:focus-visible {
+  transform: translateY(-1px);
+}
+
+.availability-toggle:disabled {
+  cursor: default;
+  opacity: 0.7;
+  transform: none;
+}
+
 .cleaner-entry-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1129,6 +1193,16 @@ pre code {
   padding: 0.9rem 1rem;
   font-size: 0.92rem;
   color: var(--accent-deep);
+}
+
+.success-banner {
+  margin-top: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(84, 125, 94, 0.2);
+  background: rgba(115, 160, 123, 0.1);
+  padding: 0.9rem 1rem;
+  font-size: 0.92rem;
+  color: #35533b;
 }
 
 .today-chip {

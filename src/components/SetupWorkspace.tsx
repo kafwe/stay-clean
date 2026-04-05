@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { Apartment, Cleaner } from '#/lib/types'
+import type { Apartment, Cleaner, CleanerWeekAvailability } from '#/lib/types'
 import {
   normalizeCleanerColorHex,
   THEME_CLEANER_COLORS,
@@ -74,16 +74,22 @@ async function getJson<TPayload>(url: string): Promise<TPayload> {
 }
 
 export function SetupWorkspace({
+  weekStart,
+  weekLabel,
   apartments,
   cleaners,
+  weekCleanerAvailability,
   busyKey,
   error,
   setBusyKey,
   setError,
   onDone,
 }: {
+  weekStart: string
+  weekLabel: string
   apartments: Apartment[]
   cleaners: Cleaner[]
+  weekCleanerAvailability: CleanerWeekAvailability[]
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
@@ -299,6 +305,9 @@ export function SetupWorkspace({
     editingCleanerNameAlreadyExists
       ? 'That cleaner already exists.'
       : editCleanerErrors.name?.message
+  const availabilityByCleanerId = new Map(
+    weekCleanerAvailability.map((item) => [item.cleanerId, item.status]),
+  )
 
   return (
     <section className="content-stack">
@@ -782,6 +791,114 @@ export function SetupWorkspace({
             </form>
           ) : null}
 
+        </div>
+      </article>
+
+      <article className="ledger-panel rounded-[1.75rem] p-5">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">Week-by-week team</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Cleaner availability</h2>
+          </div>
+          <p className="section-copy">
+            Choose who can be assigned in {weekLabel}. This only changes the week you are viewing.
+          </p>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {cleaners.length ? (
+            cleaners.map((cleaner) => {
+              const availabilityStatus = availabilityByCleanerId.get(cleaner.id) ?? 'available'
+              const availableKey = `availability-on-${cleaner.id}`
+              const offKey = `availability-off-${cleaner.id}`
+              const isSavingAvailable = busyKey === availableKey
+              const isSavingOff = busyKey === offKey
+              const isSaving = isSavingAvailable || isSavingOff
+
+              return (
+                <article
+                  key={cleaner.id}
+                  className={`home-card availability-card ${
+                    availabilityStatus === 'off'
+                      ? 'is-off'
+                      : availabilityStatus === 'partial'
+                        ? 'is-partial'
+                        : ''
+                  }`}
+                >
+                  <div className="availability-copy">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="cleaner-chip">
+                        <span
+                          className="cleaner-dot"
+                          style={{ backgroundColor: cleaner.colorHex ?? '#7ea8f8' }}
+                          aria-hidden="true"
+                        />
+                        {cleaner.name}
+                      </span>
+                      {availabilityStatus === 'partial' ? (
+                        <span className="cleaner-chip subtle-chip">Partly unavailable</span>
+                      ) : null}
+                    </div>
+                    <p className="availability-summary">
+                      {availabilityStatus === 'off'
+                        ? 'This cleaner will not be used for any day in the selected week.'
+                        : availabilityStatus === 'partial'
+                          ? 'Some days are blocked. Pick one option below to set the whole week.'
+                          : 'This cleaner can be assigned anywhere in the selected week.'}
+                    </p>
+                  </div>
+
+                  <div className="availability-actions">
+                    <button
+                      type="button"
+                      className={`availability-toggle ${availabilityStatus === 'available' ? 'is-active' : ''}`}
+                      disabled={isSaving}
+                      onClick={() => {
+                        if (availabilityStatus === 'available') {
+                          return
+                        }
+
+                        void runAction(availableKey, async () => {
+                          await postJson('/api/setup/cleaners/availability', {
+                            weekStart,
+                            cleanerId: cleaner.id,
+                            isAvailable: true,
+                          })
+                        })
+                      }}
+                    >
+                      {isSavingAvailable ? 'Saving...' : 'Use this week'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`availability-toggle ${availabilityStatus === 'off' ? 'is-active' : ''}`}
+                      disabled={isSaving}
+                      onClick={() => {
+                        if (availabilityStatus === 'off') {
+                          return
+                        }
+
+                        void runAction(offKey, async () => {
+                          await postJson('/api/setup/cleaners/availability', {
+                            weekStart,
+                            cleanerId: cleaner.id,
+                            isAvailable: false,
+                          })
+                        })
+                      }}
+                    >
+                      {isSavingOff ? 'Saving...' : 'Leave out'}
+                    </button>
+                  </div>
+                </article>
+              )
+            })
+          ) : (
+            <p className="text-sm leading-6 text-[var(--ink-soft)]">
+              Add a cleaner first, then choose who is available for {weekLabel}.
+            </p>
+          )}
         </div>
       </article>
 

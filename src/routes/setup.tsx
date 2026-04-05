@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { startTransition, useState } from 'react'
+import { useState } from 'react'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PwaClient } from '#/components/PwaClient'
@@ -21,9 +21,7 @@ function SetupRoute() {
   const [error, setError] = useState<string | null>(null)
 
   async function refresh() {
-    startTransition(() => {
-      router.invalidate()
-    })
+    await router.invalidate({ sync: true })
   }
 
   async function runAction(key: string, action: () => Promise<void>) {
@@ -139,8 +137,11 @@ function SetupRoute() {
         </article>
 
         <SetupWorkspace
+          weekStart={data.weekStart}
+          weekLabel={data.weekLabel}
           apartments={data.apartments}
           cleaners={data.cleaners}
+          weekCleanerAvailability={data.weekCleanerAvailability}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}

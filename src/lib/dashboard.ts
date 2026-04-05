@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers'
 import { getCookie } from '@tanstack/react-start/server'
 import { formatDistanceToNow } from 'date-fns'
 import { verifySessionToken, SESSION_COOKIE_NAME } from './auth'
-import { formatWeekLabel, getNextWeekStartIso, getWeekRange } from './date'
+import { formatWeekLabel, getNextWeekStartIso, getWeekRange, weekDates } from './date'
 import { isThemeCleanerColor, normalizeCleanerColorHex } from './cleaner-colors'
 import {
   countDistancePairs,
@@ -30,6 +30,7 @@ import {
   recordSyncEvent,
   replaceDistanceMatrix,
   saveWeekPlan,
+  setCleanerAvailabilityForWeek,
   updateCleaner,
   updateApartmentCoordinates,
   updateRunStatus,
@@ -37,7 +38,15 @@ import {
 import { syncICalFeeds } from './ical'
 import { sendPushToManager } from './push'
 import { buildDayGroups, buildScheduleSummary, buildWeekTasks, diffAssignments, generateAssignments } from './scheduler'
-import type { CleanTask, DashboardData, ScheduleAssignment } from './types'
+import type {
+  CleanTask,
+  Cleaner,
+  CleanerAvailability,
+  CleanerWeekAvailability,
+  DashboardData,
+  ScheduleAssignment,
+  ScheduleStatus,
+} from './types'
 
 async function isAuthenticated() {
   return verifySessionToken(getCookie(SESSION_COOKIE_NAME), env.SESSION_SECRET)
@@ -104,6 +113,79 @@ async function ensureWeekPlan(weekStart: string) {
   return getWeekRun(weekStart)
 }
 
+function buildWeekCleanerAvailability(
+  cleaners: Cleaner[],
+  availability: CleanerAvailability[],
+  weekStartIso: string,
+): CleanerWeekAvailability[] {
+  const weekDateSet = new Set(weekDates(weekStartIso))
+  const offDayCountByCleaner = new Map<string, number>()
+
+  for (const entry of availability) {
+    if (entry.status !== 'off' || !weekDateSet.has(entry.date)) {
+      continue
+    }
+
+    offDayCountByCleaner.set(entry.cleanerId, (offDayCountByCleaner.get(entry.cleanerId) ?? 0) + 1)
+  }
+
+  return cleaners.map((cleaner) => {
+    const offDayCount = offDayCountByCleaner.get(cleaner.id) ?? 0
+
+    if (offDayCount === 0) {
+      return {
+        cleanerId: cleaner.id,
+        status: 'available',
+      }
+    }
+
+    if (offDayCount >= 7) {
+      return {
+        cleanerId: cleaner.id,
+        status: 'off',
+      }
+    }
+
+    return {
+      cleanerId: cleaner.id,
+      status: 'partial',
+    }
+  })
+}
+
+async function rebuildWeekPlan(weekStartIso: string, status: ScheduleStatus) {
+  const { weekEndIso } = getWeekRange(new Date(weekStartIso))
+  const [apartments, cleaners, manualRequests, availability, distanceMatrix] = await Promise.all([
+    listApartments(),
+    listCleaners(),
+    listManualRequests(),
+    listAvailability(weekStartIso),
+    getDistanceMatrix(),
+  ])
+  const bookings = await listBookingsForRange(weekStartIso, weekEndIso)
+  const tasks = buildWeekTasks({
+    weekStart: weekStartIso,
+    apartments,
+    bookings,
+    manualRequests,
+  })
+  const assignments = generateAssignments({
+    tasks,
+    cleaners,
+    availability,
+    distanceMatrix,
+  })
+  const summary = buildScheduleSummary(assignments)
+
+  await saveWeekPlan({
+    weekStart: weekStartIso,
+    status,
+    summary,
+    tasks,
+    assignments,
+  })
+}
+
 export async function getDashboardSnapshot(weekStartOverride?: string): Promise<DashboardData> {
   const authenticated = await isAuthenticated()
   const weekStartIso = weekStartOverride ?? getWeekRange().weekStartIso
@@ -120,6 +202,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
       vapidPublicKey: null,
       apartments: [],
       cleaners: [],
+      weekCleanerAvailability: [],
       dayGroups: [],
       changeSets: [],
       manualReviews: [],
@@ -136,11 +219,12 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
     countDistancePairs(),
   ])
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
-  const [assignments, changeSets, manualReviews, lastSync] = await Promise.all([
+  const [assignments, changeSets, manualReviews, lastSync, availability] = await Promise.all([
     run ? getWeekAssignments(run.id) : Promise.resolve([]),
     run ? listChangeSets(run.id) : Promise.resolve([]),
     getManualReviewItems(weekStartIso),
     latestSyncEvent(),
+    listAvailability(weekStartIso),
   ])
 
   return {
@@ -153,6 +237,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
     vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
     apartments,
     cleaners,
+    weekCleanerAvailability: buildWeekCleanerAvailability(cleaners, availability, weekStartIso),
     dayGroups: buildDayGroups(assignments, weekStartIso),
     changeSets: changeSets.filter((changeSet) => changeSet.status === 'pending'),
     manualReviews,
@@ -297,7 +382,6 @@ export async function addManualRequestToWeek(input: {
   notes?: string | null
 }) {
   const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
-  const { weekEndIso } = getWeekRange(new Date(weekStartIso))
 
   await createManualCleanRequest({
     label: await resolveManualRequestLabel(input),
@@ -307,13 +391,7 @@ export async function addManualRequestToWeek(input: {
     notes: input.notes ?? null,
   })
 
-  const [apartments, cleaners, manualRequests, availability, distanceMatrix] = await Promise.all([
-    listApartments(),
-    listCleaners(),
-    listManualRequests(),
-    listAvailability(weekStartIso),
-    getDistanceMatrix(),
-  ])
+  const [apartments, cleaners] = await Promise.all([listApartments(), listCleaners()])
 
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
 
@@ -321,28 +399,29 @@ export async function addManualRequestToWeek(input: {
     throw new Error('Add homes and cleaner names before adding cleans to the week')
   }
 
-  const bookings = await listBookingsForRange(weekStartIso, weekEndIso)
-  const tasks = buildWeekTasks({
-    weekStart: weekStartIso,
-    apartments,
-    bookings,
-    manualRequests,
-  })
-  const assignments = generateAssignments({
-    tasks,
-    cleaners,
-    availability,
-    distanceMatrix,
-  })
-  const summary = buildScheduleSummary(assignments)
+  await rebuildWeekPlan(weekStartIso, run.status)
+}
 
-  await saveWeekPlan({
-    weekStart: weekStartIso,
-    status: run.status,
-    summary,
-    tasks,
-    assignments,
+export async function updateCleanerWeekAvailability(input: {
+  weekStart?: string
+  cleanerId: string
+  isAvailable: boolean
+}) {
+  const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
+  const [apartments, cleaners] = await Promise.all([listApartments(), listCleaners()])
+  const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
+
+  if (!run) {
+    throw new Error('Add homes and cleaner names before updating the team for the week')
+  }
+
+  await setCleanerAvailabilityForWeek({
+    cleanerId: input.cleanerId,
+    weekStartIso,
+    isAvailable: input.isAvailable,
   })
+
+  await rebuildWeekPlan(weekStartIso, run.status)
 }
 
 export async function confirmCurrentWeek(weekStartOverride?: string) {

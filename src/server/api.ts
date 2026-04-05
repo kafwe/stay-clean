@@ -20,6 +20,7 @@ import {
   saveApartmentCoordinates,
   seedDistanceMatrix,
   updateCleanerName,
+  updateCleanerWeekAvailability,
 } from '#/lib/dashboard'
 import {
   createSessionToken,
@@ -30,6 +31,7 @@ import {
 import { savePushSubscription } from '#/lib/db'
 import {
   apartmentSchema,
+  cleanerAvailabilitySchema,
   cleanerSchema,
   cleanerUpdateSchema,
   deleteAssignmentSchema,
@@ -595,6 +597,11 @@ app.post('/api/setup/cleaners/:id/update', zValidator('json', cleanerUpdateSchem
     cleanerId: c.req.param('id'),
     name: payload.name,
   })
+  return c.json({ ok: true })
+})
+
+app.post('/api/setup/cleaners/availability', zValidator('json', cleanerAvailabilitySchema), async (c) => {
+  await updateCleanerWeekAvailability(c.req.valid('json'))
   return c.json({ ok: true })
 })
 

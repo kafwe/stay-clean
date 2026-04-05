@@ -28,6 +28,12 @@ export const cleanerUpdateSchema = z.object({
   name: z.string().trim().min(2).max(60),
 })
 
+export const cleanerAvailabilitySchema = z.object({
+  weekStart: z.string().optional(),
+  cleanerId: z.string().min(1),
+  isAvailable: z.boolean(),
+})
+
 export const manualSchema = z.object({
   label: z.string().min(2).optional(),
   apartmentId: z.string().optional(),
