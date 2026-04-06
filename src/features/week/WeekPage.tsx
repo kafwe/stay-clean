@@ -1,11 +1,13 @@
 import { CalendarCheck2, Sparkles } from 'lucide-react'
 import { Link, getRouteApi, useRouter } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { PlannerHeader } from '#/components/planner'
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
+import { dashboardQueryOptions, useDashboardActionMutation } from '#/lib/dashboard-query'
 import { plannerNavOptions } from '#/lib/planner-navigation'
 import type { ScheduleAssignment } from '#/lib/types'
 import { CleanerAvailabilitySheet } from './components/CleanerAvailabilitySheet'
@@ -19,9 +21,10 @@ import { buildWeekPageModel } from './week-model'
 const plannerRoute = getRouteApi('/_planner')
 
 export function WeekPage() {
-  const data = plannerRoute.useLoaderData()
   const search = plannerRoute.useSearch()
+  const { data } = useSuspenseQuery(dashboardQueryOptions(search.week))
   const router = useRouter()
+  const actionMutation = useDashboardActionMutation(search.week)
   const navOptions = plannerNavOptions(data.weekStart)
   const weekModel = useMemo(() => buildWeekPageModel(data), [data])
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -72,17 +75,12 @@ export function WeekPage() {
     setEditTaskDate(editingAssignment.taskDate)
   }, [editingAssignment])
 
-  async function refresh() {
-    await router.invalidate({ sync: true })
-  }
-
   async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
     setBusyKey(key)
     setError(null)
 
     try {
-      await action()
-      await refresh()
+      await actionMutation.mutateAsync(action)
       onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')

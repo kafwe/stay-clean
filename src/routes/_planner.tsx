@@ -1,7 +1,9 @@
 import { Link, Outlet, createFileRoute, retainSearchParams, useLocation, useRouter } from '@tanstack/react-router'
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { AuthView } from '#/components/AuthView'
-import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
+import { postJson, weekSearchSchema } from '#/lib/dashboard-page'
+import { dashboardQueryOptions, invalidateDashboardQuery, useDashboardActionMutation } from '#/lib/dashboard-query'
 
 function getPlannerAuthCopy(pathname: string) {
   if (pathname.startsWith('/setup')) {
@@ -30,7 +32,7 @@ export const Route = createFileRoute('/_planner')({
     middlewares: [retainSearchParams(['week'])],
   },
   loaderDeps: ({ search }) => ({ weekStart: search.week }),
-  loader: ({ deps }) => loadDashboard({ data: { weekStart: deps.weekStart } }),
+  loader: ({ deps, context }) => context.queryClient.fetchQuery(dashboardQueryOptions(deps.weekStart)),
   pendingMs: 300,
   pendingComponent: PlannerPendingState,
   errorComponent: PlannerErrorState,
@@ -38,10 +40,11 @@ export const Route = createFileRoute('/_planner')({
 })
 
 function PlannerGuardBoundary() {
-  const data = Route.useLoaderData()
-  const router = useRouter()
+  const search = Route.useSearch()
+  const { data } = useSuspenseQuery(dashboardQueryOptions(search.week))
   const { pathname } = useLocation()
   const authCopy = getPlannerAuthCopy(pathname)
+  const signInMutation = useDashboardActionMutation(search.week)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,8 +53,9 @@ function PlannerGuardBoundary() {
     setError(null)
 
     try {
-      await postJson('/api/auth/login', { password })
-      await router.invalidate({ sync: true })
+      await signInMutation.mutateAsync(async () => {
+        await postJson('/api/auth/login', { password })
+      })
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'Something went wrong. Please try again.')
     } finally {
@@ -92,6 +96,8 @@ function PlannerPendingState() {
 
 function PlannerErrorState({ error }: { error: unknown }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const search = Route.useSearch()
   const message = error instanceof Error ? error.message : 'This planner screen could not be loaded.'
 
   return (
@@ -105,7 +111,10 @@ function PlannerErrorState({ error }: { error: unknown }) {
             type="button"
             className="action-primary"
             onClick={() => {
-              void router.invalidate()
+              void (async () => {
+                await invalidateDashboardQuery(queryClient, search.week)
+                await router.invalidate({ sync: true })
+              })()
             }}
           >
             Try again

@@ -1,10 +1,12 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { startTransition, useEffect, useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PlannerHeader } from '#/components/planner'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
+import { dashboardQueryOptions, useDashboardActionMutation } from '#/lib/dashboard-query'
 import { ManualJobPanel } from './components/ManualJobPanel'
 import { ManualReviewPanel } from './components/ManualReviewPanel'
 import { ReviewPanel } from './components/ReviewPanel'
@@ -12,9 +14,10 @@ import { ReviewPanel } from './components/ReviewPanel'
 const plannerRoute = getRouteApi('/_planner')
 
 export function ReviewPage() {
-  const data = plannerRoute.useLoaderData()
   const search = plannerRoute.useSearch()
+  const { data } = useSuspenseQuery(dashboardQueryOptions(search.week))
   const router = useRouter()
+  const actionMutation = useDashboardActionMutation(search.week)
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -27,17 +30,12 @@ export function ReviewPage() {
     setManualDate((currentDate) => (dateOptions.includes(currentDate) ? currentDate : dateOptions[0] ?? ''))
   }, [data.weekStart, dateOptions])
 
-  async function refresh() {
-    await router.invalidate({ sync: true })
-  }
-
   async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
     setBusyKey(key)
     setError(null)
 
     try {
-      await action()
-      await refresh()
+      await actionMutation.mutateAsync(action)
       onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')

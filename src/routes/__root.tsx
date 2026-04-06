@@ -1,10 +1,15 @@
-import { HeadContent, Scripts, Link, createRootRoute } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
+import { HeadContent, Scripts, Link, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ServiceWorkerClient } from '#/components/ServiceWorkerClient'
 import appCss from '../styles.css?url'
 
-export const Route = createRootRoute({
+type RouterAppContext = {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {

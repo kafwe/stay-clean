@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AddApartmentForm } from './setup-workspace/AddApartmentForm'
 import { AddCleanerForm } from './setup-workspace/AddCleanerForm'
 import { ApartmentListPanel } from './setup-workspace/ApartmentListPanel'
 import { CleanerListPanel } from './setup-workspace/CleanerListPanel'
+import { useDashboardActionMutation } from '#/lib/dashboard-query'
 import type { PlaceSuggestion } from './setup-workspace/types'
 import type { Apartment, Cleaner } from '#/lib/types'
 import {
@@ -56,8 +58,29 @@ async function postJson(url: string, body?: unknown) {
   }
 }
 
-async function getJson<TPayload>(url: string): Promise<TPayload> {
-  const response = await fetch(url, {
+function useDebouncedValue(value: string, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedValue(value)
+    }, delayMs)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [value, delayMs])
+
+  return debouncedValue
+}
+
+async function fetchPlaceSuggestions(address: string, countryCode: string): Promise<PlaceSuggestion[]> {
+  const autocompleteQuery = new URLSearchParams({
+    q: address,
+    country: countryCode,
+  })
+
+  const response = await fetch(`/api/places/autocomplete?${autocompleteQuery.toString()}`, {
     method: 'GET',
     credentials: 'include',
     headers: {
@@ -69,34 +92,34 @@ async function getJson<TPayload>(url: string): Promise<TPayload> {
     throw new Error('Something went wrong. Please try again.')
   }
 
-  return (await response.json()) as TPayload
+  const payload = (await response.json()) as { suggestions?: PlaceSuggestion[] }
+  return payload.suggestions ?? []
 }
 
 export function SetupWorkspace({
   apartments = [],
   cleaners = [],
+  weekSearch,
   busyKey,
   error,
   setBusyKey,
   setError,
-  onDone,
 }: {
   apartments?: Apartment[]
   cleaners?: Cleaner[]
+  weekSearch?: string
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
   setError: (value: string | null) => void
-  onDone: () => Promise<void>
 }) {
+  const actionMutation = useDashboardActionMutation(weekSearch)
   const [preferredCountryCode] = useState(getPreferredCountryCode)
   const [addressCoordinates, setAddressCoordinates] = useState<{
     latitude: number
     longitude: number
   } | null>(null)
-  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([])
   const [isAddressSuggestionsOpen, setIsAddressSuggestionsOpen] = useState(false)
-  const [isAddressSuggestionsLoading, setIsAddressSuggestionsLoading] = useState(false)
   const [localCleaners, setLocalCleaners] = useState<Cleaner[]>(cleaners)
   const [editingCleanerId, setEditingCleanerId] = useState<string | null>(null)
   const [activeTool, setActiveTool] = useState<'home' | 'cleaner' | null>(null)
@@ -154,14 +177,32 @@ export function SetupWorkspace({
   const cleanerName = cleanerForm.watch('name') ?? ''
   const cleanerColorHex = cleanerForm.watch('colorHex') ?? (THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
   const editingCleanerName = editCleanerForm.watch('name') ?? ''
+  const trimmedAddress = address.trim()
+  const debouncedAddress = useDebouncedValue(trimmedAddress, 260)
+  const shouldQuerySuggestions =
+    trimmedAddress.length >= 3 &&
+    activeTool === 'home' &&
+    addressCoordinates === null
+  const {
+    data: addressSuggestions = [],
+    isFetching: isAddressSuggestionsLoading,
+    isError: hasAddressSuggestionsError,
+    errorUpdatedAt: addressSuggestionsErrorUpdatedAt,
+  } = useQuery({
+    queryKey: ['places-autocomplete', preferredCountryCode, debouncedAddress],
+    queryFn: () => fetchPlaceSuggestions(debouncedAddress, preferredCountryCode),
+    enabled: shouldQuerySuggestions && debouncedAddress.length >= 3,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  })
 
   async function runAction(key: string, action: () => Promise<void>) {
     setBusyKey(key)
     setError(null)
 
     try {
-      await action()
-      await onDone()
+      await actionMutation.mutateAsync(action)
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
@@ -174,58 +215,24 @@ export function SetupWorkspace({
   }, [cleaners])
 
   useEffect(() => {
-    const trimmedAddress = address.trim()
-    const shouldQuerySuggestions =
-      trimmedAddress.length >= 3 && activeTool === 'home' && addressCoordinates === null
-
-    if (!shouldQuerySuggestions) {
-      setAddressSuggestions([])
-      setIsAddressSuggestionsOpen(false)
-      setIsAddressSuggestionsLoading(false)
+    if (
+      !hasAddressSuggestionsError ||
+      !shouldQuerySuggestions ||
+      debouncedAddress !== trimmedAddress
+    ) {
       return
     }
 
-    const controller = new AbortController()
-    setIsAddressSuggestionsLoading(true)
-    const debounceTimer = window.setTimeout(() => {
-      const autocompleteQuery = new URLSearchParams({
-        q: trimmedAddress,
-        country: preferredCountryCode,
-      })
-
-      void getJson<{ suggestions?: PlaceSuggestion[] }>(
-        `/api/places/autocomplete?${autocompleteQuery.toString()}`,
-      )
-        .then((payload) => {
-          if (controller.signal.aborted) {
-            return
-          }
-
-          const suggestions = payload.suggestions ?? []
-          setAddressSuggestions(suggestions)
-          setIsAddressSuggestionsOpen(suggestions.length > 0)
-        })
-        .catch(() => {
-          if (controller.signal.aborted) {
-            return
-          }
-
-          setAddressSuggestions([])
-          setIsAddressSuggestionsOpen(false)
-          setError('Address lookup is unavailable right now. You can still enter the full address.')
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) {
-            setIsAddressSuggestionsLoading(false)
-          }
-        })
-    }, 260)
-
-    return () => {
-      controller.abort()
-      window.clearTimeout(debounceTimer)
-    }
-  }, [address, activeTool, addressCoordinates, preferredCountryCode, setError])
+    setIsAddressSuggestionsOpen(false)
+    setError('Address lookup is unavailable right now. You can still enter the full address.')
+  }, [
+    hasAddressSuggestionsError,
+    shouldQuerySuggestions,
+    debouncedAddress,
+    trimmedAddress,
+    addressSuggestionsErrorUpdatedAt,
+    setError,
+  ])
 
   async function runOptimisticCleanerAction(
     key: string,
@@ -238,7 +245,7 @@ export function SetupWorkspace({
     optimisticUpdate()
 
     try {
-      await action()
+      await actionMutation.mutateAsync(action)
     } catch (actionError) {
       rollback()
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
@@ -281,7 +288,8 @@ export function SetupWorkspace({
   const shouldShowAddressSuggestions =
     activeTool === 'home' &&
     isAddressSuggestionsOpen &&
-    address.trim().length >= 3 &&
+    trimmedAddress.length >= 3 &&
+    debouncedAddress === trimmedAddress &&
     addressSuggestions.length > 0
   const addCleanerNameError =
     cleanerAlreadyExists
@@ -416,7 +424,6 @@ export function SetupWorkspace({
       })
       resetHomeForm()
       setAddressCoordinates(null)
-      setAddressSuggestions([])
       setIsAddressSuggestionsOpen(false)
     })
   })

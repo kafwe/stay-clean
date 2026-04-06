@@ -1,30 +1,31 @@
-import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { getRouteApi } from '@tanstack/react-router'
 import { useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PlannerHeader } from '#/components/planner'
 import { PwaClient } from '#/components/PwaClient'
 import { postJson } from '#/lib/dashboard-page'
+import { dashboardQueryOptions, useDashboardActionMutation } from '#/lib/dashboard-query'
 import { SetupWorkspace } from './components/SetupWorkspace'
 
 const plannerRoute = getRouteApi('/_planner')
 
 export function SetupPage() {
-  const data = plannerRoute.useLoaderData()
-  const router = useRouter()
+  const search = plannerRoute.useSearch()
+  const { data } = useSuspenseQuery(dashboardQueryOptions(search.week))
+  const actionMutation = useDashboardActionMutation(search.week)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const pendingReviewCount = data.changeSets.length + data.manualReviews.length
-
-  async function refresh() {
-    await router.invalidate({ sync: true })
-  }
 
   async function signOut() {
     setBusyKey('logout')
     setError(null)
 
     try {
-      await postJson('/api/auth/logout')
+      await actionMutation.mutateAsync(async () => {
+        await postJson('/api/auth/logout')
+      })
 
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready.catch(() => null)
@@ -103,11 +104,11 @@ export function SetupPage() {
           <SetupWorkspace
             apartments={data.apartments ?? []}
             cleaners={data.cleaners ?? []}
+            weekSearch={search.week}
             busyKey={busyKey}
             error={error}
             setBusyKey={setBusyKey}
             setError={setError}
-            onDone={refresh}
           />
         </section>
       </div>
