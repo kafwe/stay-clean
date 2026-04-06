@@ -38,7 +38,7 @@ export function CleanerListPanel({
           <p className="setup-summary-copy">Keep the active team list current.</p>
         </div>
         <button type="button" className={active ? 'action-ghost' : 'action-secondary'} onClick={onToggle}>
-          {active ? 'Hide form' : 'Add a cleaner'}
+          {active ? 'Close drawer' : 'Add a cleaner'}
         </button>
       </div>
 

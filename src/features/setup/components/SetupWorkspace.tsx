@@ -301,6 +301,13 @@ export function SetupWorkspace({
       : editCleanerErrors.name?.message
   const activeHomeForm = activeTool === 'home'
   const activeCleanerForm = activeTool === 'cleaner'
+  const closeHomeForm = () => {
+    setActiveTool(null)
+    setIsAddressSuggestionsOpen(false)
+  }
+  const closeCleanerForm = () => {
+    setActiveTool(null)
+  }
   const editCleanerNameInputProps = registerEditCleaner('name', {
     onChange: () => {
       if (editCleanerErrors.name) {
@@ -425,6 +432,7 @@ export function SetupWorkspace({
       resetHomeForm()
       setAddressCoordinates(null)
       setIsAddressSuggestionsOpen(false)
+      closeHomeForm()
     })
   })
 
@@ -454,6 +462,7 @@ export function SetupWorkspace({
         name: '',
         colorHex: fallbackCleanerColor,
       })
+      closeCleanerForm()
     })
   })
 
@@ -539,8 +548,9 @@ export function SetupWorkspace({
           </div>
 
           <AddApartmentForm
-            visible={activeHomeForm}
+            open={activeHomeForm}
             busy={busyKey === 'add-apartment'}
+            onClose={closeHomeForm}
             nameError={homeErrors.name?.message}
             addressError={homeErrors.address?.message}
             bookingIcalUrlError={homeErrors.bookingIcalUrl?.message}
@@ -558,9 +568,10 @@ export function SetupWorkspace({
           />
 
           <AddCleanerForm
-            visible={activeCleanerForm}
+            open={activeCleanerForm}
             busy={busyKey === 'add-cleaner'}
             canSubmit={canSubmitCleaner}
+            onClose={closeCleanerForm}
             selectedCleanerColor={selectedCleanerColor}
             nameError={addCleanerNameError}
             colorError={cleanerErrors.colorHex?.message}

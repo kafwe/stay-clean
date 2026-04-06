@@ -21,7 +21,7 @@ export function ApartmentListPanel({
           <p className="setup-summary-copy">Keep your active homes up to date.</p>
         </div>
         <button type="button" className={active ? 'action-ghost' : 'action-secondary'} onClick={onToggle}>
-          {active ? 'Hide form' : 'Add a home'}
+          {active ? 'Close drawer' : 'Add a home'}
         </button>
       </div>
 
