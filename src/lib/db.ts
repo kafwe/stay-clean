@@ -208,6 +208,7 @@ export async function setCleanerAvailabilityForWeek(input: {
   cleanerId: string
   weekStartIso: string
   isAvailable: boolean
+  dateIso?: string
 }) {
   const existingCleaner = await first<{ id: string }>(
     `SELECT id
@@ -220,7 +221,7 @@ export async function setCleanerAvailabilityForWeek(input: {
     throw new Error('Cleaner not found')
   }
 
-  const dates = weekDates(input.weekStartIso)
+  const dates = input.dateIso ? [input.dateIso] : weekDates(input.weekStartIso)
   const weekEndIso = dates[dates.length - 1]
 
   if (!weekEndIso) {
@@ -228,6 +229,16 @@ export async function setCleanerAvailabilityForWeek(input: {
   }
 
   if (input.isAvailable) {
+    if (input.dateIso) {
+      await run(
+        `DELETE FROM cleaner_availability
+         WHERE cleaner_id = ?
+           AND date = ?`,
+        [input.cleanerId, input.dateIso],
+      )
+      return
+    }
+
     await run(
       `DELETE FROM cleaner_availability
        WHERE cleaner_id = ?

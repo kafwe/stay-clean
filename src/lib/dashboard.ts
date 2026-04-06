@@ -202,6 +202,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
       vapidPublicKey: null,
       apartments: [],
       cleaners: [],
+      weekAvailability: [],
       weekCleanerAvailability: [],
       dayGroups: [],
       changeSets: [],
@@ -237,6 +238,7 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
     vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
     apartments,
     cleaners,
+    weekAvailability: availability,
     weekCleanerAvailability: buildWeekCleanerAvailability(cleaners, availability, weekStartIso),
     dayGroups: buildDayGroups(assignments, weekStartIso),
     changeSets: changeSets.filter((changeSet) => changeSet.status === 'pending'),
@@ -406,8 +408,15 @@ export async function updateCleanerWeekAvailability(input: {
   weekStart?: string
   cleanerId: string
   isAvailable: boolean
+  date?: string
 }) {
   const weekStartIso = input.weekStart ?? getWeekRange().weekStartIso
+  const weekDateSet = new Set(weekDates(weekStartIso))
+
+  if (input.date && !weekDateSet.has(input.date)) {
+    throw new Error('Choose a date within the selected week')
+  }
+
   const [apartments, cleaners] = await Promise.all([listApartments(), listCleaners()])
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
 
@@ -419,6 +428,7 @@ export async function updateCleanerWeekAvailability(input: {
     cleanerId: input.cleanerId,
     weekStartIso,
     isAvailable: input.isAvailable,
+    dateIso: input.date,
   })
 
   await rebuildWeekPlan(weekStartIso, run.status)

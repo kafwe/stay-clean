@@ -163,6 +163,7 @@ export interface DashboardData {
   vapidPublicKey: string | null
   apartments: Apartment[]
   cleaners: Cleaner[]
+  weekAvailability: CleanerAvailability[]
   weekCleanerAvailability: CleanerWeekAvailability[]
   dayGroups: ScheduleDayGroup[]
   changeSets: ChangeSet[]

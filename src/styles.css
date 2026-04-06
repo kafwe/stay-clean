@@ -464,13 +464,13 @@ pre code {
 }
 
 .availability-card.is-off {
-  border-color: rgba(146, 74, 45, 0.2);
-  background: rgba(166, 90, 57, 0.06);
+  border-color: rgba(129, 97, 84, 0.22);
+  background: rgba(248, 242, 238, 0.86);
 }
 
 .availability-card.is-partial {
-  border-color: rgba(146, 95, 45, 0.2);
-  background: rgba(255, 247, 238, 0.84);
+  border-color: rgba(151, 132, 98, 0.22);
+  background: rgba(250, 246, 238, 0.9);
 }
 
 .availability-copy {
@@ -481,6 +481,66 @@ pre code {
   margin-top: 0.65rem;
   font-size: 0.92rem;
   line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.availability-day-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.3rem, 1fr));
+  gap: 0.45rem;
+}
+
+.availability-day-toggle {
+  border-radius: 0.82rem;
+  border: 1px solid rgba(146, 95, 45, 0.14);
+  background: rgba(255, 252, 247, 0.82);
+  padding: 0.48rem 0.4rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.12rem;
+  line-height: 1.1;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.availability-day-toggle.is-on {
+  border-color: rgba(84, 125, 94, 0.2);
+  background: rgba(241, 250, 244, 0.86);
+}
+
+.availability-day-toggle.is-off {
+  border-color: rgba(141, 111, 98, 0.24);
+  background: rgba(248, 242, 238, 0.9);
+}
+
+.availability-day-toggle:hover,
+.availability-day-toggle:focus-visible {
+  transform: translateY(-1px);
+}
+
+.availability-day-toggle:disabled {
+  cursor: default;
+  opacity: 0.72;
+  transform: none;
+}
+
+.availability-day-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.availability-day-date {
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.availability-day-state {
+  font-size: 0.67rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
@@ -506,6 +566,12 @@ pre code {
   border-color: rgba(84, 125, 94, 0.28);
   background: rgba(115, 160, 123, 0.14);
   color: #35533b;
+}
+
+.availability-toggle.is-active-off {
+  border-color: rgba(129, 97, 84, 0.3);
+  background: rgba(236, 224, 217, 0.78);
+  color: #6b4d41;
 }
 
 .availability-toggle:hover,
@@ -711,6 +777,56 @@ pre code {
 
 .cleaner-chip {
   white-space: nowrap;
+}
+
+.cleaner-chip-availability {
+  padding-right: 0.45rem;
+  border-color: rgba(146, 95, 45, 0.18);
+}
+
+.cleaner-chip-availability.cleaner-chip-on {
+  background: rgba(241, 250, 244, 0.92);
+  border-color: rgba(84, 125, 94, 0.26);
+}
+
+.cleaner-chip-availability.cleaner-chip-partial {
+  background: rgba(250, 246, 238, 0.92);
+  border-color: rgba(151, 132, 98, 0.25);
+}
+
+.cleaner-chip-availability.cleaner-chip-off {
+  background: rgba(248, 242, 238, 0.92);
+  border-color: rgba(129, 97, 84, 0.24);
+}
+
+.availability-inline-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.availability-inline-status-on {
+  background: rgba(115, 160, 123, 0.14);
+  border-color: rgba(84, 125, 94, 0.22);
+  color: #35533b;
+}
+
+.availability-inline-status-partial {
+  background: rgba(227, 215, 190, 0.52);
+  border-color: rgba(151, 132, 98, 0.24);
+  color: #735c36;
+}
+
+.availability-inline-status-off {
+  background: rgba(236, 224, 217, 0.76);
+  border-color: rgba(129, 97, 84, 0.24);
+  color: #6b4d41;
 }
 
 .cleaner-chip.warning {

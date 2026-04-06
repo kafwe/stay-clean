@@ -32,6 +32,7 @@ export const cleanerAvailabilitySchema = z.object({
   weekStart: z.string().optional(),
   cleanerId: z.string().min(1),
   isAvailable: z.boolean(),
+  date: z.string().optional(),
 })
 
 export const manualSchema = z.object({

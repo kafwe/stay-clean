@@ -1,13 +1,14 @@
 import { CalendarCheck2, RefreshCcw, Sparkles, Users } from 'lucide-react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { DayCard, ManualJobSheet, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
 import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { loadDashboard, postJson, weekSearchSchema } from '#/lib/dashboard-page'
-import type { Cleaner, CleanerWeekAvailability, ScheduleAssignment } from '#/lib/types'
+import type { Cleaner, CleanerAvailability, CleanerWeekAvailability, ScheduleAssignment } from '#/lib/types'
 
 export const Route = createFileRoute('/')({
   validateSearch: weekSearchSchema,
@@ -313,17 +314,13 @@ function App() {
               data.cleaners.map((cleaner) => {
                 const availabilityStatus =
                   data.weekCleanerAvailability.find((item) => item.cleanerId === cleaner.id)?.status ?? 'available'
+                const availabilityMeta = getAvailabilityPresentation(availabilityStatus)
 
                 return (
                   <span
                     key={cleaner.id}
-                    className={`cleaner-chip ${
-                      availabilityStatus === 'off'
-                        ? 'warning'
-                        : availabilityStatus === 'partial'
-                          ? 'subtle-chip'
-                          : ''
-                    }`}
+                    className={`cleaner-chip cleaner-chip-availability cleaner-chip-${availabilityMeta.tone}`}
+                    title={availabilityMeta.tooltip}
                   >
                     <span
                       className="cleaner-dot"
@@ -331,11 +328,11 @@ function App() {
                       aria-hidden="true"
                     />
                     {cleaner.name}
-                    {availabilityStatus === 'off'
-                      ? 'off'
-                      : availabilityStatus === 'partial'
-                        ? 'partial'
-                        : 'on'}
+                    <span
+                      className={`availability-inline-status availability-inline-status-${availabilityMeta.tone}`}
+                    >
+                      {availabilityMeta.shortLabel}
+                    </span>
                   </span>
                 )
               })
@@ -357,7 +354,7 @@ function App() {
               }}
             >
               <Users size={16} />
-              {availabilityBusy ? 'Saving...' : 'Open team sheet'}
+              {availabilityBusy ? 'Saving...' : 'Manage cleaner availability'}
             </button>
           </div>
         </article>
@@ -365,6 +362,8 @@ function App() {
         <CleanerAvailabilitySheet
           open={availabilityOpen}
           cleaners={data.cleaners}
+          weekStart={data.weekStart}
+          weekAvailability={data.weekAvailability}
           weekCleanerAvailability={data.weekCleanerAvailability}
           weekLabel={data.weekLabel}
           busyKey={busyKey}
@@ -376,20 +375,31 @@ function App() {
 
             setAvailabilityOpen(false)
           }}
-          onSetAvailability={(cleanerId, isAvailable) => {
+          onSetAvailability={(cleanerId, isAvailable, date) => {
             const cleaner = data.cleaners.find((item) => item.id === cleanerId)
             const cleanerName = cleaner?.name ?? 'Cleaner'
+            const dayLabel = date ? formatDayLabel(date) : null
 
             void runAction(
-              `availability-${isAvailable ? 'on' : 'off'}-${cleanerId}`,
+              `availability-${isAvailable ? 'on' : 'off'}-${cleanerId}-${date ?? 'week'}`,
               async () => {
                 await postJson('/api/setup/cleaners/availability', {
                   weekStart: data.weekStart,
                   cleanerId,
                   isAvailable,
+                  date,
                 })
               },
               () => {
+                if (dayLabel) {
+                  setAvailabilitySuccess(
+                    isAvailable
+                      ? `${cleanerName} is available on ${dayLabel}.`
+                      : `${cleanerName} is off on ${dayLabel}.`,
+                  )
+                  return
+                }
+
                 setAvailabilitySuccess(
                   isAvailable
                     ? `${cleanerName} is available for ${data.weekLabel}.`
@@ -559,6 +569,8 @@ function App() {
 function CleanerAvailabilitySheet({
   open,
   cleaners,
+  weekStart,
+  weekAvailability,
   weekCleanerAvailability,
   weekLabel,
   busyKey,
@@ -568,20 +580,35 @@ function CleanerAvailabilitySheet({
 }: {
   open: boolean
   cleaners: Cleaner[]
+  weekStart: string
+  weekAvailability: CleanerAvailability[]
   weekCleanerAvailability: CleanerWeekAvailability[]
   weekLabel: string
   busyKey: string | null
   successMessage: string | null
   onClose: () => void
-  onSetAvailability: (cleanerId: string, isAvailable: boolean) => void
+  onSetAvailability: (cleanerId: string, isAvailable: boolean, date?: string) => void
 }) {
   if (!open) {
     return null
   }
 
+  const weekDateList = weekDates(weekStart)
+  const availabilityBusy = Boolean(busyKey?.startsWith('availability-'))
   const availabilityByCleanerId = new Map(
     weekCleanerAvailability.map((item) => [item.cleanerId, item.status]),
   )
+  const offDatesByCleanerId = new Map<string, Set<string>>()
+
+  for (const entry of weekAvailability) {
+    if (entry.status !== 'off') {
+      continue
+    }
+
+    const offDateSet = offDatesByCleanerId.get(entry.cleanerId) ?? new Set<string>()
+    offDateSet.add(entry.date)
+    offDatesByCleanerId.set(entry.cleanerId, offDateSet)
+  }
 
   return (
     <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Cleaner availability">
@@ -591,7 +618,7 @@ function CleanerAvailabilitySheet({
             <p className="eyebrow">Week-by-week team</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Cleaner availability</h2>
           </div>
-          <button type="button" className="action-ghost sheet-close-button" onClick={onClose} disabled={Boolean(busyKey?.startsWith('availability-'))}>
+          <button type="button" className="action-ghost sheet-close-button" onClick={onClose} disabled={availabilityBusy}>
             Close
           </button>
         </div>
@@ -609,19 +636,20 @@ function CleanerAvailabilitySheet({
           {cleaners.length ? (
             cleaners.map((cleaner) => {
               const availabilityStatus = availabilityByCleanerId.get(cleaner.id) ?? 'available'
-              const availableKey = `availability-on-${cleaner.id}`
-              const offKey = `availability-off-${cleaner.id}`
+              const availabilityMeta = getAvailabilityPresentation(availabilityStatus)
+              const availableKey = `availability-on-${cleaner.id}-week`
+              const offKey = `availability-off-${cleaner.id}-week`
               const isSavingAvailable = busyKey === availableKey
               const isSavingOff = busyKey === offKey
-              const isSaving = isSavingAvailable || isSavingOff
+              const offDates = offDatesByCleanerId.get(cleaner.id) ?? new Set<string>()
 
               return (
                 <article
                   key={cleaner.id}
                   className={`home-card availability-card ${
-                    availabilityStatus === 'off'
+                    availabilityMeta.tone === 'off'
                       ? 'is-off'
-                      : availabilityStatus === 'partial'
+                      : availabilityMeta.tone === 'partial'
                         ? 'is-partial'
                         : ''
                   }`}
@@ -636,24 +664,48 @@ function CleanerAvailabilitySheet({
                         />
                         {cleaner.name}
                       </span>
-                      {availabilityStatus === 'partial' ? (
-                        <span className="cleaner-chip subtle-chip">Partly unavailable</span>
-                      ) : null}
+                      <span
+                        className={`availability-inline-status availability-inline-status-${availabilityMeta.tone}`}
+                        title={availabilityMeta.tooltip}
+                      >
+                        {availabilityMeta.shortLabel}
+                      </span>
                     </div>
-                    <p className="availability-summary">
-                      {availabilityStatus === 'off'
-                        ? 'This cleaner will not be used for any day in the selected week.'
-                        : availabilityStatus === 'partial'
-                          ? 'Some days are blocked. Pick one option below to set the whole week.'
-                          : 'This cleaner can be assigned anywhere in the selected week.'}
-                    </p>
+                    <p className="availability-summary">{availabilityMeta.summary}</p>
+                    <div className="availability-day-grid" role="group" aria-label={`${cleaner.name} day-by-day availability`}>
+                      {weekDateList.map((dateIso) => {
+                        const isAvailableForDay = !offDates.has(dateIso)
+                        const dayBusyKey = `availability-${isAvailableForDay ? 'off' : 'on'}-${cleaner.id}-${dateIso}`
+                        const isSavingDay = busyKey === dayBusyKey
+
+                        return (
+                          <button
+                            key={dateIso}
+                            type="button"
+                            className={`availability-day-toggle ${isAvailableForDay ? 'is-on' : 'is-off'}`}
+                            disabled={availabilityBusy}
+                            aria-pressed={!isAvailableForDay}
+                            title={`${cleaner.name} is ${isAvailableForDay ? 'available' : 'off'} on ${formatDayLabel(dateIso)}`}
+                            onClick={() => {
+                              onSetAvailability(cleaner.id, !isAvailableForDay, dateIso)
+                            }}
+                          >
+                            <span className="availability-day-name">{format(parseISO(dateIso), 'EEE')}</span>
+                            <span className="availability-day-date">{format(parseISO(dateIso), 'd MMM')}</span>
+                            <span className="availability-day-state">
+                              {isSavingDay ? '...' : isAvailableForDay ? 'On' : 'Off'}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
 
                   <div className="availability-actions">
                     <button
                       type="button"
-                      className={`availability-toggle ${availabilityStatus === 'available' ? 'is-active' : ''}`}
-                      disabled={isSaving}
+                      className={`availability-toggle ${availabilityStatus === 'available' ? 'is-active is-active-on' : ''}`}
+                      disabled={availabilityBusy}
                       onClick={() => {
                         if (availabilityStatus === 'available') {
                           return
@@ -662,12 +714,12 @@ function CleanerAvailabilitySheet({
                         onSetAvailability(cleaner.id, true)
                       }}
                     >
-                      {isSavingAvailable ? 'Saving...' : 'Use this week'}
+                      {isSavingAvailable ? 'Saving...' : 'Use all week'}
                     </button>
                     <button
                       type="button"
-                      className={`availability-toggle ${availabilityStatus === 'off' ? 'is-active' : ''}`}
-                      disabled={isSaving}
+                      className={`availability-toggle ${availabilityStatus === 'off' ? 'is-active is-active-off' : ''}`}
+                      disabled={availabilityBusy}
                       onClick={() => {
                         if (availabilityStatus === 'off') {
                           return
@@ -676,7 +728,7 @@ function CleanerAvailabilitySheet({
                         onSetAvailability(cleaner.id, false)
                       }}
                     >
-                      {isSavingOff ? 'Saving...' : 'Leave out'}
+                      {isSavingOff ? 'Saving...' : 'Leave out all week'}
                     </button>
                   </div>
                 </article>
@@ -691,4 +743,31 @@ function CleanerAvailabilitySheet({
       </div>
     </div>
   )
+}
+
+function getAvailabilityPresentation(status: CleanerWeekAvailability['status']) {
+  if (status === 'off') {
+    return {
+      tone: 'off' as const,
+      shortLabel: 'Off all week',
+      summary: 'This cleaner is excluded for every day in the selected week.',
+      tooltip: 'Off all week: this cleaner is unavailable for all 7 days.',
+    }
+  }
+
+  if (status === 'partial') {
+    return {
+      tone: 'partial' as const,
+      shortLabel: 'Partial week',
+      summary: 'This cleaner is off on one or more days, but not the full week.',
+      tooltip: 'Partial week: this cleaner is unavailable on some days this week.',
+    }
+  }
+
+  return {
+    tone: 'on' as const,
+    shortLabel: 'On all week',
+    summary: 'This cleaner can be assigned on any day in the selected week.',
+    tooltip: 'On all week: this cleaner is available every day this week.',
+  }
 }
