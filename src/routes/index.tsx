@@ -108,6 +108,7 @@ function App() {
   const defaultOpenDay = activeGroups.find((item) => !item.group.isEmpty)?.group.date ?? data.weekStart
   const availabilityBusy = Boolean(busyKey?.startsWith('availability-'))
   const pendingReviewCount = data.changeSets.length + data.manualReviews.length
+  const availabilityWeekLabel = formatWeekLabelWithoutYear(data.weekStart)
   const nextStepLabel =
     pendingReviewCount > 0
       ? `Review ${pendingReviewCount} item${pendingReviewCount === 1 ? '' : 's'} before you confirm the week`
@@ -216,7 +217,7 @@ function App() {
         <article className="overview-card overview-card-week">
           <div className="overview-copy">
             <p className="eyebrow">This week at a glance</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Let&apos;s keep this week smooth</h2>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Everything set for a smooth week</h2>
             <div className="overview-metrics">
               <span className="overview-metric">
                 <strong>{cleansLeft}</strong>
@@ -305,7 +306,7 @@ function App() {
               <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Cleaner availability</h2>
             </div>
             <p className="section-copy">
-              Choose who is available in {data.weekLabel}.
+              Choose who is available in {availabilityWeekLabel}.
             </p>
           </div>
 
@@ -365,7 +366,7 @@ function App() {
           weekStart={data.weekStart}
           weekAvailability={data.weekAvailability}
           weekCleanerAvailability={data.weekCleanerAvailability}
-          weekLabel={data.weekLabel}
+          weekLabel={availabilityWeekLabel}
           busyKey={busyKey}
           successMessage={availabilitySuccess}
           onClose={() => {
@@ -754,6 +755,12 @@ function CleanerAvailabilitySheet({
       </div>
     </div>
   )
+}
+
+function formatWeekLabelWithoutYear(weekStartIso: string) {
+  const [startIso, ...rest] = weekDates(weekStartIso)
+  const endIso = rest.length ? rest[rest.length - 1] : startIso
+  return `${format(parseISO(startIso), 'd MMM')} - ${format(parseISO(endIso), 'd MMM')}`
 }
 
 function getAvailabilityPresentation(status: CleanerWeekAvailability['status']) {

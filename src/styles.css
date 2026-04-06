@@ -1607,12 +1607,10 @@ pre code {
   justify-content: space-between;
   gap: 0.8rem;
   padding: 0.1rem 0.05rem 0.85rem;
-  border-bottom: 1px dashed rgba(146, 95, 45, 0.18);
-  transition: border-color 180ms ease, background-color 180ms ease;
+  transition: background-color 180ms ease;
 }
 
 .fold-panel-summary:hover {
-  border-bottom-color: rgba(146, 95, 45, 0.28);
   background: rgba(255, 252, 246, 0.46);
 }
 
@@ -1677,10 +1675,6 @@ pre code {
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1;
-}
-
-.fold-panel[open] > .fold-panel-summary {
-  border-bottom-color: rgba(146, 95, 45, 0.28);
 }
 
 .fold-panel[open] > .fold-panel-summary .fold-panel-chevron {
