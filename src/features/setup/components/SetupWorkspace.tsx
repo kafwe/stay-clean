@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AddApartmentForm } from '#/components/setup-workspace/AddApartmentForm'
-import { AddCleanerForm } from '#/components/setup-workspace/AddCleanerForm'
-import { ApartmentListPanel } from '#/components/setup-workspace/ApartmentListPanel'
-import { CleanerListPanel } from '#/components/setup-workspace/CleanerListPanel'
-import type { PlaceSuggestion } from '#/components/setup-workspace/types'
+import { AddApartmentForm } from './setup-workspace/AddApartmentForm'
+import { AddCleanerForm } from './setup-workspace/AddCleanerForm'
+import { ApartmentListPanel } from './setup-workspace/ApartmentListPanel'
+import { CleanerListPanel } from './setup-workspace/CleanerListPanel'
+import type { PlaceSuggestion } from './setup-workspace/types'
 import type { Apartment, Cleaner } from '#/lib/types'
 import {
   normalizeCleanerColorHex,

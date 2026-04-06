@@ -1,10 +1,10 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
+import { PlannerHeader } from '#/components/planner'
 import { PwaClient } from '#/components/PwaClient'
-import { SetupWorkspace } from '#/components/SetupWorkspace'
-import { WeekPanelHeader } from '#/components/week-sections/WeekPanelHeader'
 import { postJson } from '#/lib/dashboard-page'
+import { SetupWorkspace } from './components/SetupWorkspace'
 
 const plannerRoute = getRouteApi('/_planner')
 
@@ -42,7 +42,7 @@ export function SetupPage() {
   return (
     <MobileAppShell activeTab="more" weekStart={data.weekStart} pendingReviewCount={pendingReviewCount}>
       <div className="route-stage route-stage-setup">
-        <WeekPanelHeader
+        <PlannerHeader
           eyebrow="Tools"
           title="More"
           status={data.weekStatus}
@@ -62,7 +62,7 @@ export function SetupPage() {
               </p>
             </div>
           </article>
-        </WeekPanelHeader>
+        </PlannerHeader>
 
         <section className="content-stack route-stack route-stack-setup">
           <article className="ledger-panel rounded-[1.75rem] p-5 panel-soft">

@@ -3,14 +3,14 @@ import { Link, getRouteApi, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ManualJobSheet } from '#/components/week-sections/ManualJobSheet'
-import { QuickEditSheet } from '#/components/week-sections/QuickEditSheet'
-import { WeekPanelHeader } from '#/components/week-sections/WeekPanelHeader'
+import { PlannerHeader } from '#/components/planner'
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
 import { plannerNavOptions } from '#/lib/planner-navigation'
 import type { ScheduleAssignment } from '#/lib/types'
 import { CleanerAvailabilitySheet } from './components/CleanerAvailabilitySheet'
+import { ManualJobSheet } from './components/ManualJobSheet'
+import { QuickEditSheet } from './components/QuickEditSheet'
 import { TeamAvailabilityCard } from './components/TeamAvailabilityCard'
 import { WeekOverviewCard } from './components/WeekOverviewCard'
 import { WeeklyPlanPanel } from './components/WeeklyPlanPanel'
@@ -136,7 +136,7 @@ export function WeekPage() {
       }
     >
       <div className="route-stage route-stage-week">
-        <WeekPanelHeader
+        <PlannerHeader
           title={data.weekLabel}
           status={data.weekStatus}
           showThisWeekButton={Boolean(search.week)}
@@ -182,7 +182,7 @@ export function WeekPage() {
               })
             }}
           />
-        </WeekPanelHeader>
+        </PlannerHeader>
 
         {error ? <section className="error-banner">{error}</section> : null}
 

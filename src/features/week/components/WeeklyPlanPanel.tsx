@@ -1,4 +1,4 @@
-import { DayCard } from '#/components/week-sections/DayCard'
+import { DayCard } from './DayCard'
 import type { ScheduleDayGroup } from '#/lib/types'
 import type { AnnotatedDayGroup } from '../week-model'
 

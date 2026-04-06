@@ -1,13 +1,13 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
+import { PlannerHeader } from '#/components/planner'
 import { PdfExportButton } from '#/components/PdfExportButton'
-import { ManualJobPanel } from '#/components/week-sections/ManualJobPanel'
-import { ManualReviewPanel } from '#/components/week-sections/ManualReviewPanel'
-import { ReviewPanel } from '#/components/week-sections/ReviewPanel'
-import { WeekPanelHeader } from '#/components/week-sections/WeekPanelHeader'
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
+import { ManualJobPanel } from './components/ManualJobPanel'
+import { ManualReviewPanel } from './components/ManualReviewPanel'
+import { ReviewPanel } from './components/ReviewPanel'
 
 const plannerRoute = getRouteApi('/_planner')
 
@@ -87,7 +87,7 @@ export function ReviewPage() {
       }
     >
       <div className="route-stage route-stage-review">
-        <WeekPanelHeader
+        <PlannerHeader
           eyebrow="Review queue"
           title={data.weekLabel}
           status={data.weekStatus}
@@ -113,7 +113,7 @@ export function ReviewPage() {
               </p>
             </div>
           </article>
-        </WeekPanelHeader>
+        </PlannerHeader>
 
         {error ? <section className="error-banner">{error}</section> : null}
 

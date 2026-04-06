@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ScheduleStatus } from '#/lib/types'
 
-export function getWeekStatusLabel(status: string | null) {
+export function getPlannerStatusLabel(status: string | null) {
   if (status === 'confirmed') {
     return 'Confirmed'
   }
@@ -17,7 +17,7 @@ export function getWeekStatusLabel(status: string | null) {
   return 'Setting up'
 }
 
-export function WeekPanelHeader({
+export function PlannerHeader({
   eyebrow = 'This week',
   title,
   status,
@@ -50,7 +50,7 @@ export function WeekPanelHeader({
               {title}
             </h1>
           </div>
-          {showStatus ? <span className="status-pill status-pill-compact">{getWeekStatusLabel(status)}</span> : null}
+          {showStatus ? <span className="status-pill status-pill-compact">{getPlannerStatusLabel(status)}</span> : null}
         </div>
 
         {showWeekControls ? (
