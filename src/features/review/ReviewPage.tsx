@@ -48,7 +48,8 @@ export function ReviewPage() {
     startTransition(() => {
       void router.navigate({
         to: '/review',
-        search: () => ({
+        search: (prev) => ({
+          ...prev,
           week: shiftWeek(data.weekStart, direction),
         }),
       })
@@ -59,7 +60,10 @@ export function ReviewPage() {
     startTransition(() => {
       void router.navigate({
         to: '/review',
-        search: () => ({}),
+        search: (prev) => ({
+          ...prev,
+          week: undefined,
+        }),
       })
     })
   }

@@ -154,7 +154,8 @@ export function WeekPage() {
     startTransition(() => {
       void router.navigate({
         to: '/',
-        search: () => ({
+        search: (prev) => ({
+          ...prev,
           week: shiftWeek(data.weekStart, direction),
         }),
       })
@@ -165,7 +166,10 @@ export function WeekPage() {
     startTransition(() => {
       void router.navigate({
         to: '/',
-        search: () => ({}),
+        search: (prev) => ({
+          ...prev,
+          week: undefined,
+        }),
       })
     })
   }
@@ -235,7 +239,11 @@ export function WeekPage() {
 
             <div className="overview-actions overview-actions-priority">
               {pendingReviewCount > 0 ? (
-                <Link to="/review" search={{ week: data.weekStart }} className="action-primary no-underline">
+                <Link
+                  to="/review"
+                  search={(prev) => ({ ...prev, week: data.weekStart })}
+                  className="action-primary no-underline"
+                >
                   <Sparkles size={16} />
                   Review updates
                 </Link>
@@ -283,7 +291,11 @@ export function WeekPage() {
 
         <section className="content-stack route-stack route-stack-week">
           {data.changeSets.length || data.manualReviews.length ? (
-            <Link to="/review" search={{ week: data.weekStart }} className="review-callout review-callout-week no-underline">
+            <Link
+              to="/review"
+              search={(prev) => ({ ...prev, week: data.weekStart })}
+              className="review-callout review-callout-week no-underline"
+            >
               <div>
                 <p className="eyebrow">Needs your attention</p>
                 <p className="mt-1 text-sm text-[var(--ink-soft)]">

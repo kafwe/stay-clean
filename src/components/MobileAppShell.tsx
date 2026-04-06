@@ -150,7 +150,7 @@ export function MobileAppShell({
           <nav className="bottom-nav" aria-label="Main">
             <Link
               to="/"
-              search={{ week: weekStart }}
+              search={(prev) => ({ ...prev, week: weekStart })}
               className={`bottom-nav-link ${activeTab === 'week' ? 'is-active' : ''}`}
             >
               <House size={18} />
@@ -158,7 +158,7 @@ export function MobileAppShell({
             </Link>
             <Link
               to="/review"
-              search={{ week: weekStart }}
+              search={(prev) => ({ ...prev, week: weekStart })}
               className={`bottom-nav-link ${activeTab === 'changes' ? 'is-active' : ''} ${pendingReviewCount > 0 ? 'has-alert' : ''}`}
             >
               <span className="bottom-nav-icon-wrap">
@@ -173,7 +173,7 @@ export function MobileAppShell({
             </Link>
             <Link
               to="/setup"
-              search={{ week: weekStart }}
+              search={(prev) => ({ ...prev, week: weekStart })}
               className={`bottom-nav-link ${activeTab === 'more' ? 'is-active' : ''}`}
             >
               <Settings2 size={18} />
