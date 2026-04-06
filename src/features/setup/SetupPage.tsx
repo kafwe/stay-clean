@@ -66,6 +66,16 @@ export function SetupPage() {
         </PlannerHeader>
 
         <section className="content-stack route-stack route-stack-setup">
+          <SetupWorkspace
+            apartments={data.apartments ?? []}
+            cleaners={data.cleaners ?? []}
+            weekSearch={search.week}
+            busyKey={busyKey}
+            error={error}
+            setBusyKey={setBusyKey}
+            setError={setError}
+          />
+
           <article className="ledger-panel rounded-[1.75rem] p-5 panel-soft">
             <p className="eyebrow">Common tasks</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Quick tools</h2>
@@ -100,16 +110,6 @@ export function SetupPage() {
               </div>
             </div>
           </article>
-
-          <SetupWorkspace
-            apartments={data.apartments ?? []}
-            cleaners={data.cleaners ?? []}
-            weekSearch={search.week}
-            busyKey={busyKey}
-            error={error}
-            setBusyKey={setBusyKey}
-            setError={setError}
-          />
         </section>
       </div>
     </MobileAppShell>
