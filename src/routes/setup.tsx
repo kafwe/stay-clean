@@ -137,8 +137,8 @@ function SetupRoute() {
         </article>
 
         <SetupWorkspace
-          apartments={data.apartments}
-          cleaners={data.cleaners}
+          apartments={data.apartments ?? []}
+          cleaners={data.cleaners ?? []}
           busyKey={busyKey}
           error={error}
           setBusyKey={setBusyKey}

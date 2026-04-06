@@ -74,16 +74,16 @@ async function getJson<TPayload>(url: string): Promise<TPayload> {
 }
 
 export function SetupWorkspace({
-  apartments,
-  cleaners,
+  apartments = [],
+  cleaners = [],
   busyKey,
   error,
   setBusyKey,
   setError,
   onDone,
 }: {
-  apartments: Apartment[]
-  cleaners: Cleaner[]
+  apartments?: Apartment[]
+  cleaners?: Cleaner[]
   busyKey: string | null
   error: string | null
   setBusyKey: (value: string | null) => void
@@ -98,7 +98,7 @@ export function SetupWorkspace({
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([])
   const [isAddressSuggestionsOpen, setIsAddressSuggestionsOpen] = useState(false)
   const [isAddressSuggestionsLoading, setIsAddressSuggestionsLoading] = useState(false)
-  const [localCleaners, setLocalCleaners] = useState(cleaners)
+  const [localCleaners, setLocalCleaners] = useState<Cleaner[]>(cleaners)
   const [editingCleanerId, setEditingCleanerId] = useState<string | null>(null)
   const [activeTool, setActiveTool] = useState<'home' | 'cleaner' | null>(null)
 

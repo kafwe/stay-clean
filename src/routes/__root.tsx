@@ -101,6 +101,7 @@ export const Route = createRootRoute({
   }),
   shellComponent: RootDocument,
   notFoundComponent: RootNotFound,
+  errorComponent: RootError,
 })
 
 function RootNotFound() {
@@ -111,6 +112,21 @@ function RootNotFound() {
       <p className="mt-3 text-sm leading-7 text-(--ink-soft)">
         The link may be old, or the page may have moved.
       </p>
+      <Link to="/" className="action-secondary mt-5 inline-flex">
+        Go to week view
+      </Link>
+    </main>
+  )
+}
+
+function RootError({ error }: { error: unknown }) {
+  const message = error instanceof Error ? error.message : 'Something went wrong while loading this screen.'
+
+  return (
+    <main className="mx-auto max-w-xl px-6 py-14">
+      <p className="eyebrow">Something went wrong</p>
+      <h1 className="mt-2 text-2xl font-semibold text-(--ink-strong)">This screen could not be loaded</h1>
+      <p className="mt-3 text-sm leading-7 text-(--ink-soft)">{message}</p>
       <Link to="/" className="action-secondary mt-5 inline-flex">
         Go to week view
       </Link>
