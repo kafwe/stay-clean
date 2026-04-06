@@ -445,7 +445,18 @@ function App() {
 
         {emptyGroups.length ? (
           <details className="fold-panel">
-            <summary>Quiet days</summary>
+            <summary className="fold-panel-summary">
+              <span className="fold-panel-heading">
+                <span className="fold-panel-heading-copy">
+                  <span className="eyebrow">No cleans scheduled</span>
+                  <span className="fold-panel-title">Quiet days</span>
+                </span>
+                <span className="fold-panel-heading-meta">
+                  <span className="fold-panel-count">{emptyGroups.length}</span>
+                  <span className="fold-panel-chevron" aria-hidden="true" />
+                </span>
+              </span>
+            </summary>
             <div className="mt-4 space-y-3">
               {emptyGroups.map(({ group }) => (
                 <DayCard
