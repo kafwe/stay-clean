@@ -7,6 +7,7 @@ import { PdfExportButton } from '#/components/PdfExportButton'
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
 import { dashboardQueryOptions, useDashboardActionMutation } from '#/lib/dashboard-query'
+import type { DashboardData } from '#/lib/types'
 import { ManualJobPanel } from './components/ManualJobPanel'
 import { ManualReviewPanel } from './components/ManualReviewPanel'
 import { ReviewPanel } from './components/ReviewPanel'
@@ -30,12 +31,24 @@ export function ReviewPage() {
     setManualDate((currentDate) => (dateOptions.includes(currentDate) ? currentDate : dateOptions[0] ?? ''))
   }, [data.weekStart, dateOptions])
 
-  async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
+  async function runAction(
+    key: string,
+    action: () => Promise<void>,
+    onSuccess?: () => void,
+    optimisticUpdate?: (current: DashboardData) => DashboardData,
+  ) {
     setBusyKey(key)
     setError(null)
 
     try {
-      await actionMutation.mutateAsync(action)
+      await actionMutation.mutateAsync(
+        optimisticUpdate
+          ? {
+              action,
+              optimisticUpdate,
+            }
+          : action,
+      )
       onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
@@ -122,14 +135,30 @@ export function ReviewPage() {
             changeSets={data.changeSets}
             busyKey={busyKey}
             onApprove={(changeSetId) =>
-              runAction(`approve-${changeSetId}`, async () => {
-                await postJson(`/api/suggestions/${changeSetId}/approve`)
-              })
+              runAction(
+                `approve-${changeSetId}`,
+                async () => {
+                  await postJson(`/api/suggestions/${changeSetId}/approve`)
+                },
+                undefined,
+                (current) => ({
+                  ...current,
+                  changeSets: current.changeSets.filter((changeSet) => changeSet.id !== changeSetId),
+                }),
+              )
             }
             onReject={(changeSetId) =>
-              runAction(`reject-${changeSetId}`, async () => {
-                await postJson(`/api/suggestions/${changeSetId}/reject`)
-              })
+              runAction(
+                `reject-${changeSetId}`,
+                async () => {
+                  await postJson(`/api/suggestions/${changeSetId}/reject`)
+                },
+                undefined,
+                (current) => ({
+                  ...current,
+                  changeSets: current.changeSets.filter((changeSet) => changeSet.id !== changeSetId),
+                }),
+              )
             }
           />
           <ManualJobPanel

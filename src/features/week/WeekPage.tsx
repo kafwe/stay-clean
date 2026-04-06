@@ -9,7 +9,7 @@ import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
 import { dashboardQueryOptions, useDashboardActionMutation } from '#/lib/dashboard-query'
 import { plannerNavOptions } from '#/lib/planner-navigation'
-import type { ScheduleAssignment } from '#/lib/types'
+import type { DashboardData, ScheduleAssignment } from '#/lib/types'
 import { CleanerAvailabilitySheet } from './components/CleanerAvailabilitySheet'
 import { ManualJobSheet } from './components/ManualJobSheet'
 import { QuickEditSheet } from './components/QuickEditSheet'
@@ -19,6 +19,91 @@ import { WeeklyPlanPanel } from './components/WeeklyPlanPanel'
 import { buildWeekPageModel } from './week-model'
 
 const plannerRoute = getRouteApi('/_planner')
+
+function updateWeekAvailabilityOptimistically(
+  current: DashboardData,
+  input: { cleanerId: string; isAvailable: boolean; date?: string },
+) {
+  const weekDateList = weekDates(current.weekStart)
+  const weekDateSet = new Set(weekDateList)
+  const availabilityByCleanerDate = new Map<string, DashboardData['weekAvailability'][number]>()
+
+  for (const entry of current.weekAvailability) {
+    if (entry.status !== 'off' || !weekDateSet.has(entry.date)) {
+      continue
+    }
+
+    availabilityByCleanerDate.set(`${entry.cleanerId}:${entry.date}`, entry)
+  }
+
+  if (input.date) {
+    const entryKey = `${input.cleanerId}:${input.date}`
+
+    if (input.isAvailable) {
+      availabilityByCleanerDate.delete(entryKey)
+    } else {
+      availabilityByCleanerDate.set(entryKey, {
+        cleanerId: input.cleanerId,
+        date: input.date,
+        status: 'off',
+      })
+    }
+  } else if (input.isAvailable) {
+    for (const dateIso of weekDateList) {
+      availabilityByCleanerDate.delete(`${input.cleanerId}:${dateIso}`)
+    }
+  } else {
+    for (const dateIso of weekDateList) {
+      availabilityByCleanerDate.set(`${input.cleanerId}:${dateIso}`, {
+        cleanerId: input.cleanerId,
+        date: dateIso,
+        status: 'off',
+      })
+    }
+  }
+
+  const nextWeekAvailability = Array.from(availabilityByCleanerDate.values()).sort((left, right) => {
+    if (left.cleanerId === right.cleanerId) {
+      return left.date.localeCompare(right.date)
+    }
+
+    return left.cleanerId.localeCompare(right.cleanerId)
+  })
+
+  const offDayCountByCleaner = new Map<string, number>()
+  for (const entry of nextWeekAvailability) {
+    offDayCountByCleaner.set(entry.cleanerId, (offDayCountByCleaner.get(entry.cleanerId) ?? 0) + 1)
+  }
+
+  const nextWeekCleanerAvailability = current.cleaners.map((cleaner) => {
+    const offDayCount = offDayCountByCleaner.get(cleaner.id) ?? 0
+
+    if (offDayCount === 0) {
+      return {
+        cleanerId: cleaner.id,
+        status: 'available' as const,
+      }
+    }
+
+    if (offDayCount >= weekDateList.length) {
+      return {
+        cleanerId: cleaner.id,
+        status: 'off' as const,
+      }
+    }
+
+    return {
+      cleanerId: cleaner.id,
+      status: 'partial' as const,
+    }
+  })
+
+  return {
+    ...current,
+    weekAvailability: nextWeekAvailability,
+    weekCleanerAvailability: nextWeekCleanerAvailability,
+  }
+}
 
 export function WeekPage() {
   const search = plannerRoute.useSearch()
@@ -75,12 +160,24 @@ export function WeekPage() {
     setEditTaskDate(editingAssignment.taskDate)
   }, [editingAssignment])
 
-  async function runAction(key: string, action: () => Promise<void>, onSuccess?: () => void) {
+  async function runAction(
+    key: string,
+    action: () => Promise<void>,
+    onSuccess?: () => void,
+    optimisticUpdate?: (current: DashboardData) => DashboardData,
+  ) {
     setBusyKey(key)
     setError(null)
 
     try {
-      await actionMutation.mutateAsync(action)
+      await actionMutation.mutateAsync(
+        optimisticUpdate
+          ? {
+              action,
+              optimisticUpdate,
+            }
+          : action,
+      )
       onSuccess?.()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
@@ -159,9 +256,17 @@ export function WeekPage() {
                   className="action-primary"
                   disabled={busyKey === 'confirm' || data.weekStatus === 'confirmed'}
                   onClick={() => {
-                    void runAction('confirm', async () => {
-                      await postJson('/api/schedule/confirm', { weekStart: data.weekStart })
-                    })
+                    void runAction(
+                      'confirm',
+                      async () => {
+                        await postJson('/api/schedule/confirm', { weekStart: data.weekStart })
+                      },
+                      undefined,
+                      (current) => ({
+                        ...current,
+                        weekStatus: 'confirmed',
+                      }),
+                    )
                   }}
                 >
                   <CalendarCheck2 size={16} />
@@ -225,6 +330,10 @@ export function WeekPage() {
               setAvailabilityOpen(false)
             }}
             onSetAvailability={(cleanerId, isAvailable, date) => {
+              if (availabilityBusy) {
+                return
+              }
+
               const cleaner = data.cleaners.find((item) => item.id === cleanerId)
               const cleanerName = cleaner?.name ?? 'Cleaner'
               const dayLabel = date ? formatDayLabel(date) : null
@@ -255,6 +364,12 @@ export function WeekPage() {
                       : `${cleanerName} is marked off for ${data.weekLabel}.`,
                   )
                 },
+                (current) =>
+                  updateWeekAvailabilityOptimistically(current, {
+                    cleanerId,
+                    isAvailable,
+                    date,
+                  }),
               )
             }}
           />

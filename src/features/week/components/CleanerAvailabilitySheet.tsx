@@ -61,11 +61,14 @@ export function CleanerAvailabilitySheet({
         </div>
 
         <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">Set who can take cleans in {weekLabel}.</p>
-        {successMessage ? (
-          <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
-            {successMessage}
-          </section>
-        ) : null}
+        <section
+          className={`inline-feedback inline-feedback-success${successMessage ? '' : ' is-empty'}`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {successMessage ?? '\u00A0'}
+        </section>
 
         <div className="mt-5 space-y-3">
           {cleaners.length ? (
@@ -110,15 +113,16 @@ export function CleanerAvailabilitySheet({
                     <div className="availability-day-grid" role="group" aria-label={`${cleaner.name} availability by day`}>
                       {weekDateList.map((dateIso) => {
                         const isAvailableForDay = !offDates.has(dateIso)
-                        const dayBusyKey = `availability-${isAvailableForDay ? 'off' : 'on'}-${cleaner.id}-${dateIso}`
-                        const isSavingDay = busyKey === dayBusyKey
+                        const isSavingDay =
+                          busyKey === `availability-off-${cleaner.id}-${dateIso}` ||
+                          busyKey === `availability-on-${cleaner.id}-${dateIso}`
 
                         return (
                           <button
                             key={dateIso}
                             type="button"
                             className={`availability-day-toggle ${isAvailableForDay ? 'is-on' : 'is-off'}`}
-                            disabled={availabilityBusy}
+                            disabled={availabilityBusy && !isSavingDay}
                             aria-pressed={!isAvailableForDay}
                             title={`${cleaner.name}: ${isAvailableForDay ? 'available' : 'off'} on ${formatDayLabel(dateIso)}`}
                             onClick={() => {
@@ -140,7 +144,7 @@ export function CleanerAvailabilitySheet({
                     <button
                       type="button"
                       className={`availability-toggle ${availabilityStatus === 'available' ? 'is-active is-active-on' : ''}`}
-                      disabled={availabilityBusy}
+                      disabled={availabilityBusy && !isSavingAvailable}
                       onClick={() => {
                         if (availabilityStatus === 'available') {
                           return
@@ -154,7 +158,7 @@ export function CleanerAvailabilitySheet({
                     <button
                       type="button"
                       className={`availability-toggle ${availabilityStatus === 'off' ? 'is-active is-active-off' : ''}`}
-                      disabled={availabilityBusy}
+                      disabled={availabilityBusy && !isSavingOff}
                       onClick={() => {
                         if (availabilityStatus === 'off') {
                           return

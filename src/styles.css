@@ -520,7 +520,7 @@ pre code {
 
 .availability-day-toggle:disabled {
   cursor: default;
-  opacity: 0.72;
+  opacity: 1;
   transform: none;
 }
 
@@ -581,7 +581,7 @@ pre code {
 
 .availability-toggle:disabled {
   cursor: default;
-  opacity: 0.7;
+  opacity: 1;
   transform: none;
 }
 
@@ -1721,6 +1721,10 @@ pre code {
   line-height: 1.5;
 }
 
+
+.inline-feedback.is-empty {
+  visibility: hidden;
+}
 .inline-feedback-success {
   border: 1px solid rgba(84, 125, 94, 0.2);
   background: rgba(115, 160, 123, 0.1);
