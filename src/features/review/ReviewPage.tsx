@@ -7,11 +7,11 @@ import { ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from 
 import { formatDayLabel, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
 
-const reviewRoute = getRouteApi('/review')
+const plannerRoute = getRouteApi('/_planner')
 
 export function ReviewPage() {
-  const data = reviewRoute.useLoaderData()
-  const search = reviewRoute.useSearch()
+  const data = plannerRoute.useLoaderData()
+  const search = plannerRoute.useSearch()
   const router = useRouter()
   const [manualDate, setManualDate] = useState('')
   const [manualApartmentId, setManualApartmentId] = useState('')

@@ -9,86 +9,115 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as ReviewRouteImport } from './routes/review'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlannerRouteImport } from './routes/_planner'
+import { Route as PlannerIndexRouteImport } from './routes/_planner.index'
+import { Route as PlannerSetupRouteImport } from './routes/_planner.setup'
+import { Route as PlannerReviewRouteImport } from './routes/_planner.review'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const PlannerRoute = PlannerRouteImport.update({
+  id: '/_planner',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewRoute = ReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
+const PlannerIndexRoute = PlannerIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PlannerRoute,
+} as any)
+const PlannerSetupRoute = PlannerSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => PlannerRoute,
+} as any)
+const PlannerReviewRoute = PlannerReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => PlannerRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/review': typeof ReviewRoute
-  '/setup': typeof SetupRoute
+  '/': typeof PlannerIndexRoute
+  '/review': typeof PlannerReviewRoute
+  '/setup': typeof PlannerSetupRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/review': typeof ReviewRoute
-  '/setup': typeof SetupRoute
+  '/review': typeof PlannerReviewRoute
+  '/setup': typeof PlannerSetupRoute
+  '/': typeof PlannerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/review': typeof ReviewRoute
-  '/setup': typeof SetupRoute
+  '/_planner': typeof PlannerRouteWithChildren
+  '/_planner/review': typeof PlannerReviewRoute
+  '/_planner/setup': typeof PlannerSetupRoute
+  '/_planner/': typeof PlannerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths: '/' | '/review' | '/setup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/review' | '/setup'
-  id: '__root__' | '/' | '/review' | '/setup'
+  to: '/review' | '/setup' | '/'
+  id:
+    | '__root__'
+    | '/_planner'
+    | '/_planner/review'
+    | '/_planner/setup'
+    | '/_planner/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ReviewRoute: typeof ReviewRoute
-  SetupRoute: typeof SetupRoute
+  PlannerRoute: typeof PlannerRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/_planner': {
+      id: '/_planner'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PlannerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review': {
-      id: '/review'
-      path: '/review'
-      fullPath: '/review'
-      preLoaderRoute: typeof ReviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_planner/': {
+      id: '/_planner/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PlannerIndexRouteImport
+      parentRoute: typeof PlannerRoute
+    }
+    '/_planner/setup': {
+      id: '/_planner/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof PlannerSetupRouteImport
+      parentRoute: typeof PlannerRoute
+    }
+    '/_planner/review': {
+      id: '/_planner/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof PlannerReviewRouteImport
+      parentRoute: typeof PlannerRoute
     }
   }
 }
 
+interface PlannerRouteChildren {
+  PlannerReviewRoute: typeof PlannerReviewRoute
+  PlannerSetupRoute: typeof PlannerSetupRoute
+  PlannerIndexRoute: typeof PlannerIndexRoute
+}
+
+const PlannerRouteChildren: PlannerRouteChildren = {
+  PlannerReviewRoute: PlannerReviewRoute,
+  PlannerSetupRoute: PlannerSetupRoute,
+  PlannerIndexRoute: PlannerIndexRoute,
+}
+
+const PlannerRouteWithChildren =
+  PlannerRoute._addFileChildren(PlannerRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  ReviewRoute: ReviewRoute,
-  SetupRoute: SetupRoute,
+  PlannerRoute: PlannerRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

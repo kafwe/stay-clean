@@ -7,10 +7,10 @@ import { SetupWorkspace } from '#/components/SetupWorkspace'
 import { WeekPanelHeader } from '#/components/WeekSections'
 import { postJson } from '#/lib/dashboard-page'
 
-const setupRoute = getRouteApi('/setup')
+const plannerRoute = getRouteApi('/_planner')
 
 export function SetupPage() {
-  const data = setupRoute.useLoaderData()
+  const data = plannerRoute.useLoaderData()
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)

@@ -1,10 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { SetupPage } from '#/features/setup/SetupPage'
+import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { loadDashboard, weekSearchSchema } from '#/lib/dashboard-page'
 
-export const Route = createFileRoute('/setup')({
+export const Route = createFileRoute('/_planner')({
   validateSearch: weekSearchSchema,
   loaderDeps: ({ search }) => ({ weekStart: search.week }),
   loader: ({ deps }) => loadDashboard({ data: { weekStart: deps.weekStart } }),
-  component: SetupPage,
+  component: PlannerLayout,
 })
+
+function PlannerLayout() {
+  return <Outlet />
+}

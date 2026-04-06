@@ -10,11 +10,11 @@ import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates 
 import { postJson } from '#/lib/dashboard-page'
 import type { Cleaner, CleanerAvailability, CleanerWeekAvailability, ScheduleAssignment } from '#/lib/types'
 
-const weekRoute = getRouteApi('/')
+const plannerRoute = getRouteApi('/_planner')
 
 export function WeekPage() {
-  const data = weekRoute.useLoaderData()
-  const search = weekRoute.useSearch()
+  const data = plannerRoute.useLoaderData()
+  const search = plannerRoute.useSearch()
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
