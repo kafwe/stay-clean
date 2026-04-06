@@ -86,8 +86,6 @@ export function ReviewPage() {
       activeTab="changes"
       weekStart={data.weekStart}
       pendingReviewCount={pendingReviewCount}
-      onSwipeLeft={() => moveWeek(1)}
-      onSwipeRight={() => moveWeek(-1)}
       floatingAction={
         <PdfExportButton
           weekLabel={data.weekLabel}

@@ -1,9 +1,29 @@
 import { ClipboardList, House, Settings2 } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
-import { useEffect, useEffectEvent, useRef } from 'react'
+import { Link, useRouter } from '@tanstack/react-router'
+import { useCallback, useEffect, useRef } from 'react'
 import { plannerNavOptions } from '#/lib/planner-navigation'
 
 type MobileTab = 'week' | 'changes' | 'more' | null
+
+const plannerTabs: Array<Exclude<MobileTab, null>> = ['week', 'changes', 'more']
+
+function getAdjacentTab(activeTab: MobileTab, direction: -1 | 1): Exclude<MobileTab, null> | null {
+  if (!activeTab) {
+    return null
+  }
+
+  const currentIndex = plannerTabs.indexOf(activeTab)
+  if (currentIndex === -1) {
+    return null
+  }
+
+  const nextIndex = currentIndex + direction
+  if (nextIndex < 0 || nextIndex >= plannerTabs.length) {
+    return null
+  }
+
+  return plannerTabs[nextIndex]
+}
 
 export function MobileAppShell({
   children,
@@ -11,16 +31,12 @@ export function MobileAppShell({
   weekStart,
   pendingReviewCount = 0,
   floatingAction,
-  onSwipeLeft,
-  onSwipeRight,
 }: {
   children: React.ReactNode
   activeTab: MobileTab
   weekStart: string
   pendingReviewCount?: number
   floatingAction?: React.ReactNode
-  onSwipeLeft?: () => void
-  onSwipeRight?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const touchStateRef = useRef<{
@@ -29,45 +45,44 @@ export function MobileAppShell({
     swiping: boolean
     interactive: boolean
   } | null>(null)
+  const wheelStateRef = useRef<{
+    direction: -1 | 0 | 1
+    distance: number
+    lastEventAt: number
+  }>({
+    direction: 0,
+    distance: 0,
+    lastEventAt: 0,
+  })
+  const router = useRouter()
   const navOptions = plannerNavOptions(weekStart)
 
-  const triggerHaptic = useEffectEvent(() => {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+  const triggerHaptic = useCallback(() => {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(10)
     }
-  })
+  }, [])
 
-  useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target
-      if (!(target instanceof Element)) {
-        return
-      }
-
-      const actionable = target.closest('button, a, summary, [role="button"]')
-      if (!actionable) {
-        return
-      }
-
-      if (
-        actionable instanceof HTMLButtonElement &&
-        actionable.disabled
-      ) {
+  const navigateToAdjacentTab = useCallback(
+    (direction: -1 | 1) => {
+      const nextTab = getAdjacentTab(activeTab, direction)
+      if (!nextTab) {
         return
       }
 
       triggerHaptic()
-    }
 
-    document.addEventListener('click', handleClick, true)
-    return () => {
-      document.removeEventListener('click', handleClick, true)
-    }
-  }, [triggerHaptic])
+      const destination =
+        nextTab === 'week' ? navOptions.week : nextTab === 'changes' ? navOptions.changes : navOptions.more
+
+      void router.navigate(destination)
+    },
+    [activeTab, navOptions, router, triggerHaptic],
+  )
 
   useEffect(() => {
     const element = scrollRef.current
-    if (!element || (!onSwipeLeft && !onSwipeRight)) {
+    if (!element) {
       return
     }
 
@@ -118,26 +133,67 @@ export function MobileAppShell({
         return
       }
 
-      triggerHaptic()
-
       if (deltaX < 0) {
-        onSwipeLeft?.()
+        navigateToAdjacentTab(1)
         return
       }
 
-      onSwipeRight?.()
+      navigateToAdjacentTab(-1)
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      const target = event.target
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, select, [contenteditable="true"], [data-no-tab-swipe]')
+      ) {
+        return
+      }
+
+      const horizontalDistance = Math.abs(event.deltaX)
+      const verticalDistance = Math.abs(event.deltaY)
+
+      if (horizontalDistance < 8 || horizontalDistance < verticalDistance * 1.15) {
+        return
+      }
+
+      const direction: -1 | 1 = event.deltaX > 0 ? 1 : -1
+      const now = performance.now()
+      const wheelState = wheelStateRef.current
+
+      if (wheelState.direction !== direction || now - wheelState.lastEventAt > 220) {
+        wheelState.direction = direction
+        wheelState.distance = 0
+      }
+
+      wheelState.distance += horizontalDistance
+      wheelState.lastEventAt = now
+
+      if (wheelState.distance < 88) {
+        return
+      }
+
+      wheelState.distance = 0
+      event.preventDefault()
+      navigateToAdjacentTab(direction)
     }
 
     element.addEventListener('touchstart', onTouchStart, { passive: true })
     element.addEventListener('touchmove', onTouchMove, { passive: false })
     element.addEventListener('touchend', onTouchEnd, { passive: true })
+    element.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
       element.removeEventListener('touchstart', onTouchStart)
       element.removeEventListener('touchmove', onTouchMove)
       element.removeEventListener('touchend', onTouchEnd)
+      element.removeEventListener('wheel', onWheel)
     }
-  }, [onSwipeLeft, onSwipeRight, triggerHaptic])
+  }, [navigateToAdjacentTab])
+
+  const handleTabClick = useCallback(() => {
+    triggerHaptic()
+  }, [triggerHaptic])
 
   return (
     <main className="mobile-shell">
@@ -153,6 +209,7 @@ export function MobileAppShell({
             <Link
               {...navOptions.week}
               className={`bottom-nav-link ${activeTab === 'week' ? 'is-active' : ''}`}
+              onClick={handleTabClick}
             >
               <House size={18} />
               <span>Week</span>
@@ -160,6 +217,7 @@ export function MobileAppShell({
             <Link
               {...navOptions.changes}
               className={`bottom-nav-link ${activeTab === 'changes' ? 'is-active' : ''} ${pendingReviewCount > 0 ? 'has-alert' : ''}`}
+              onClick={handleTabClick}
             >
               <span className="bottom-nav-icon-wrap">
                 <ClipboardList size={18} />
@@ -174,6 +232,7 @@ export function MobileAppShell({
             <Link
               {...navOptions.more}
               className={`bottom-nav-link ${activeTab === 'more' ? 'is-active' : ''}`}
+              onClick={handleTabClick}
             >
               <Settings2 size={18} />
               <span>Tools</span>
