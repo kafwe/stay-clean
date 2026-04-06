@@ -330,10 +330,16 @@ export async function addCleaner(input: { name: string; colorHex?: string | null
 export async function updateCleanerName(input: {
   cleanerId: string
   name: string
+  colorHex?: string | null
 }) {
   const normalizedName = input.name.trim()
   if (normalizedName.length < 2) {
     throw new Error('Cleaner name needs at least 2 characters')
+  }
+
+  const cleanedColorHex = normalizeCleanerColorHex(input.colorHex)
+  if (cleanedColorHex && !isThemeCleanerColor(cleanedColorHex)) {
+    throw new Error('Cleaner color must be selected from the app theme palette')
   }
 
   const existing = await listCleaners()
@@ -354,7 +360,7 @@ export async function updateCleanerName(input: {
   await updateCleaner({
     cleanerId: input.cleanerId,
     name: normalizedName,
-    colorHex: currentCleaner.colorHex,
+    colorHex: cleanedColorHex ?? currentCleaner.colorHex,
   })
 }
 

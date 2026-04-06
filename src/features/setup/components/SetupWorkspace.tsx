@@ -144,6 +144,7 @@ export function SetupWorkspace({
     resolver: zodResolver(cleanerUpdateSchema),
     defaultValues: {
       name: '',
+      colorHex: THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
     },
   })
 
@@ -168,6 +169,7 @@ export function SetupWorkspace({
     register: registerEditCleaner,
     handleSubmit: handleEditCleanerSubmit,
     reset: resetEditCleanerForm,
+    setValue: setEditCleanerValue,
     setError: setEditCleanerFormError,
     clearErrors: clearEditCleanerErrors,
     formState: { errors: editCleanerErrors },
@@ -177,6 +179,7 @@ export function SetupWorkspace({
   const cleanerName = cleanerForm.watch('name') ?? ''
   const cleanerColorHex = cleanerForm.watch('colorHex') ?? (THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
   const editingCleanerName = editCleanerForm.watch('name') ?? ''
+  const editingCleanerColorHex = editCleanerForm.watch('colorHex') ?? (THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8')
   const trimmedAddress = address.trim()
   const debouncedAddress = useDebouncedValue(trimmedAddress, 260)
   const shouldQuerySuggestions =
@@ -273,6 +276,9 @@ export function SetupWorkspace({
   const selectedCleanerColor = isThemeCleanerColor(cleanerColorHex)
     ? cleanerColorHex
     : fallbackCleanerColor
+  const selectedEditingCleanerColor = isThemeCleanerColor(editingCleanerColorHex)
+    ? editingCleanerColorHex
+    : THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8'
   const canSubmitCleaner =
     busyKey !== 'add-cleaner' &&
     trimmedCleanerName.length >= 2 &&
@@ -299,6 +305,7 @@ export function SetupWorkspace({
     editingCleanerNameAlreadyExists
       ? 'That cleaner already exists.'
       : editCleanerErrors.name?.message
+  const editingCleanerColorError = editCleanerErrors.colorHex?.message
   const activeHomeForm = activeTool === 'home'
   const activeCleanerForm = activeTool === 'cleaner'
   const closeHomeForm = () => {
@@ -331,13 +338,23 @@ export function SetupWorkspace({
   }
 
   function handleStartCleanerEdit(cleaner: Cleaner) {
+    const cleanerColor = normalizeCleanerColorHex(cleaner.colorHex)
+
     setEditingCleanerId(cleaner.id)
-    resetEditCleanerForm({ name: cleaner.name })
+    resetEditCleanerForm({
+      name: cleaner.name,
+      colorHex: cleanerColor && isThemeCleanerColor(cleanerColor)
+        ? cleanerColor
+        : THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
+    })
   }
 
   function handleCancelCleanerEdit() {
     setEditingCleanerId(null)
-    resetEditCleanerForm({ name: '' })
+    resetEditCleanerForm({
+      name: '',
+      colorHex: THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
+    })
   }
 
   function handleSaveCleanerEdit(cleaner: Cleaner) {
@@ -350,28 +367,50 @@ export function SetupWorkspace({
         return
       }
 
+      if (!isThemeCleanerColor(selectedEditingCleanerColor)) {
+        setEditCleanerFormError('colorHex', {
+          type: 'manual',
+          message: 'Choose one of the suggested theme colors',
+        })
+        return
+      }
+
       const previousCleaners = localCleaners.map((item) => ({ ...item }))
       const nextName = values.name
+      const nextColorHex = selectedEditingCleanerColor
 
       void runOptimisticCleanerAction(
         `update-cleaner-${cleaner.id}`,
         () => {
           setLocalCleaners((current) =>
             current.map((item) =>
-              item.id === cleaner.id ? { ...item, name: nextName } : item,
+              item.id === cleaner.id
+                ? {
+                    ...item,
+                    name: nextName,
+                    colorHex: nextColorHex,
+                  }
+                : item,
             ),
           )
           setEditingCleanerId(null)
-          resetEditCleanerForm({ name: '' })
+          resetEditCleanerForm({
+            name: '',
+            colorHex: THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
+          })
         },
         () => {
           setLocalCleaners(previousCleaners)
           setEditingCleanerId(cleaner.id)
-          resetEditCleanerForm({ name: nextName })
+          resetEditCleanerForm({
+            name: nextName,
+            colorHex: nextColorHex,
+          })
         },
         async () => {
           await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
             name: nextName,
+            colorHex: nextColorHex,
           })
         },
       )
@@ -398,7 +437,10 @@ export function SetupWorkspace({
 
         if (editingCleanerId === cleaner.id) {
           setEditingCleanerId(null)
-          resetEditCleanerForm({ name: '' })
+          resetEditCleanerForm({
+            name: '',
+            colorHex: THEME_CLEANER_COLORS[0]?.hex ?? '#7ea8f8',
+          })
         }
       },
       () => {
@@ -507,6 +549,14 @@ export function SetupWorkspace({
     clearCleanerErrors('colorHex')
   }
 
+  function handleEditCleanerColorSelect(colorHex: string) {
+    setEditCleanerValue('colorHex', colorHex, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    clearEditCleanerErrors('colorHex')
+  }
+
   return (
     <section className="content-stack">
       <article className="ledger-panel rounded-[1.75rem] p-5 panel-soft">
@@ -516,7 +566,7 @@ export function SetupWorkspace({
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Homes and cleaners</h2>
           </div>
           <p className="section-copy">
-            Update homes and cleaner names here.
+            Update homes and cleaner details here.
           </p>
         </div>
 
@@ -536,12 +586,15 @@ export function SetupWorkspace({
               busyKey={busyKey}
               editingCleanerId={editingCleanerId}
               editingCleanerNameError={editingCleanerNameError}
+              editingCleanerColorError={editingCleanerColorError}
+              selectedEditingCleanerColor={selectedEditingCleanerColor}
               editingCleanerNameTrimmed={editingCleanerNameTrimmed}
               editingCleanerNameAlreadyExists={editingCleanerNameAlreadyExists}
               editNameInputProps={editCleanerNameInputProps}
               onToggle={() => setActiveTool(activeCleanerForm ? null : 'cleaner')}
               onStartEdit={handleStartCleanerEdit}
               onCancelEdit={handleCancelCleanerEdit}
+              onEditColorSelect={handleEditCleanerColorSelect}
               onSaveEdit={handleSaveCleanerEdit}
               onDeleteCleaner={handleDeleteCleaner}
             />

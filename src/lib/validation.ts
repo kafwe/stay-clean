@@ -26,6 +26,13 @@ export const cleanerSchema = z.object({
 
 export const cleanerUpdateSchema = z.object({
   name: z.string().trim().min(2).max(60),
+  colorHex: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .or(z.literal(''))
+    .optional(),
 })
 
 export const cleanerAvailabilitySchema = z.object({

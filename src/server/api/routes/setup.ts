@@ -88,6 +88,7 @@ export function registerSetupRoutes(app: ApiApp) {
     await updateCleanerName({
       cleanerId: c.req.param('id'),
       name: payload.name,
+      colorHex: payload.colorHex,
     })
     return c.json({ ok: true })
   })

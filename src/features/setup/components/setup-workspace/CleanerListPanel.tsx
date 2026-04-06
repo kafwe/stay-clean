@@ -1,5 +1,6 @@
 import type { UseFormRegisterReturn } from 'react-hook-form'
 import type { Cleaner } from '#/lib/types'
+import { THEME_CLEANER_COLORS } from '#/lib/cleaner-colors'
 
 export function CleanerListPanel({
   cleaners,
@@ -7,12 +8,15 @@ export function CleanerListPanel({
   busyKey,
   editingCleanerId,
   editingCleanerNameError,
+  editingCleanerColorError,
+  selectedEditingCleanerColor,
   editingCleanerNameTrimmed,
   editingCleanerNameAlreadyExists,
   editNameInputProps,
   onToggle,
   onStartEdit,
   onCancelEdit,
+  onEditColorSelect,
   onSaveEdit,
   onDeleteCleaner,
 }: {
@@ -21,12 +25,15 @@ export function CleanerListPanel({
   busyKey: string | null
   editingCleanerId: string | null
   editingCleanerNameError?: string
+  editingCleanerColorError?: string
+  selectedEditingCleanerColor: string
   editingCleanerNameTrimmed: string
   editingCleanerNameAlreadyExists: boolean
   editNameInputProps: UseFormRegisterReturn
   onToggle: () => void
   onStartEdit: (cleaner: Cleaner) => void
   onCancelEdit: () => void
+  onEditColorSelect: (colorHex: string) => void
   onSaveEdit: (cleaner: Cleaner) => void
   onDeleteCleaner: (cleaner: Cleaner) => void
 }) {
@@ -72,6 +79,35 @@ export function CleanerListPanel({
                         autoFocus
                         aria-invalid={editingCleanerNameError ? 'true' : undefined}
                       />
+
+                      <div className="space-y-2">
+                        <p className="section-title">Color</p>
+                        <div className="theme-color-grid" role="radiogroup" aria-label="Cleaner color">
+                          {THEME_CLEANER_COLORS.map((color) => {
+                            const isSelected =
+                              selectedEditingCleanerColor.toLocaleLowerCase() ===
+                              color.hex.toLocaleLowerCase()
+
+                            return (
+                              <button
+                                key={color.hex}
+                                type="button"
+                                className={`theme-color-swatch ${isSelected ? 'is-selected' : ''}`}
+                                style={{ backgroundColor: color.hex }}
+                                onClick={() => onEditColorSelect(color.hex)}
+                                role="radio"
+                                aria-checked={isSelected}
+                                aria-label={color.label}
+                                title={color.label}
+                                disabled={isUpdating}
+                              />
+                            )
+                          })}
+                        </div>
+                        {editingCleanerColorError ? (
+                          <p className="text-xs text-[var(--accent-deep)]">{editingCleanerColorError}</p>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -104,7 +140,7 @@ export function CleanerListPanel({
                         disabled={isDeleting}
                         onClick={() => onStartEdit(cleaner)}
                       >
-                        Edit name
+                        Edit details
                       </button>
                       <button
                         type="button"
