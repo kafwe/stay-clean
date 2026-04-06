@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 function getFocusableElements(container: HTMLElement | null) {
   if (!container) {
@@ -82,7 +83,11 @@ export function SheetDialog({
     return null
   }
 
-  return (
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(
     <div
       className="sheet-backdrop"
       role="dialog"
@@ -98,6 +103,7 @@ export function SheetDialog({
         <div className="sheet-grabber" aria-hidden="true" />
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
