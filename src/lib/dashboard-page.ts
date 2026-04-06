@@ -21,6 +21,6 @@ export async function postJson(url: string, body?: unknown) {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(payload?.error ?? 'Request failed')
+    throw new Error(payload?.error ?? 'Something went wrong. Please try again.')
   }
 }

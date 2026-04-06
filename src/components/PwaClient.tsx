@@ -15,7 +15,7 @@ async function postSubscription(subscription: PushSubscription) {
   })
 
   if (!response.ok) {
-    throw new Error('Unable to save the push subscription')
+    throw new Error('Could not save reminder setup right now. Please try again.')
   }
 }
 
@@ -96,17 +96,17 @@ export function PwaClient({
 
   async function enablePush() {
     if (!isIosStandalone) {
-      setError('Open this app in Safari, tap Share, then choose Add to Home Screen.')
+      setError('Open this app in Safari, then add it to your Home Screen first.')
       return
     }
 
     if (!ready) {
-      setError('The app is still getting ready. Try again in a moment.')
+      setError('The app is still getting ready. Please try again in a moment.')
       return
     }
 
     if (!vapidPublicKey) {
-      setError('Add VAPID keys to enable push notifications.')
+      setError('Push reminders are not configured yet.')
       return
     }
 
@@ -119,7 +119,7 @@ export function PwaClient({
       setPermissionState(nextPermission)
       if (nextPermission !== 'granted') {
         setPushState(nextPermission === 'denied' ? 'blocked' : 'idle')
-        setError('Notification permission was not granted.')
+        setError('Notification permission is needed to send reminders to this phone.')
         return
       }
 
@@ -137,7 +137,7 @@ export function PwaClient({
       setError(
         subscriptionError instanceof Error
           ? subscriptionError.message
-          : 'Unable to finish reminder setup right now.',
+          : 'Could not finish reminder setup right now.',
       )
     }
   }
@@ -147,8 +147,8 @@ export function PwaClient({
       label: 'Install app',
       status: isIosStandalone ? 'done' : 'current',
       copy: isIosStandalone
-        ? 'This app is already running like an installed app.'
-        : 'Open in Safari and add it to your Home Screen first.',
+        ? 'Installed on this phone.'
+        : 'Add this app to your Home Screen in Safari.',
     },
     {
       label: 'Allow notifications',
@@ -162,10 +162,10 @@ export function PwaClient({
               : 'current',
       copy:
         permissionState === 'granted'
-          ? 'Notification access has been granted on this device.'
+          ? 'Notifications are allowed on this phone.'
           : pushState === 'blocked'
-            ? 'Notifications were blocked. Re-enable them in browser settings.'
-            : 'The app will ask for permission when you turn reminders on.',
+            ? 'Notifications are blocked. Re-enable them in Safari settings.'
+            : 'You will be asked for notification permission.',
     },
     {
       label: 'Reminders ready',
@@ -177,8 +177,8 @@ export function PwaClient({
             : 'upcoming',
       copy:
         pushState === 'enabled'
-          ? 'Phone reminders are on for this manager device.'
-          : 'Once connected, weekly review reminders can reach this phone.',
+          ? 'Weekly reminders are on for this phone.'
+          : 'Turn reminders on to receive weekly review prompts.',
     },
   ] as const
 
@@ -191,17 +191,17 @@ export function PwaClient({
 
   const helperCopy =
     pushState === 'unsupported'
-      ? 'Push reminders are not available in this browser.'
+      ? 'This browser does not support push reminders.'
       : pushState === 'enabled'
-        ? 'This device is ready for reminder notifications.'
+        ? 'This phone is ready for weekly reminders.'
         : pushState === 'blocked'
           ? 'Notifications are blocked for this app right now.'
-          : 'Set this up once on the manager phone, then reminders can be delivered here.'
+          : 'Set this up once on the manager phone.'
 
   return (
     <div className="push-guide">
       <div className="push-guide-head">
-        <p className="push-guide-title">Manager phone setup</p>
+        <p className="push-guide-title">Manager phone reminders</p>
         <p className="push-guide-copy">{helperCopy}</p>
       </div>
 
@@ -227,14 +227,11 @@ export function PwaClient({
           className="action-secondary"
         >
           {pushState === 'enabled'
-            ? 'Phone reminders on'
+            ? 'Reminders on'
             : pushState === 'enabling'
               ? 'Connecting...'
-              : 'Turn on phone reminders'}
+              : 'Turn on reminders'}
         </button>
-        {!isIosStandalone ? (
-          <p className="push-guide-hint">Use Safari on iPhone for the install step.</p>
-        ) : null}
       </div>
 
       {error ? <p className="push-guide-error">{error}</p> : null}

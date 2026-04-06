@@ -43,7 +43,7 @@ function ReviewRoute() {
       await refresh()
       onSuccess?.()
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
       setBusyKey(null)
     }
@@ -101,7 +101,7 @@ function ReviewRoute() {
     >
       <div className="route-stage route-stage-review">
       <WeekPanelHeader
-        eyebrow="Decision queue"
+        eyebrow="Review queue"
         title={data.weekLabel}
         status={data.weekStatus}
         showThisWeekButton={Boolean(search.week)}
@@ -111,18 +111,18 @@ function ReviewRoute() {
       >
         <article className="overview-card overview-card-review">
           <div className="overview-copy">
-            <p className="eyebrow">What needs review</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Decide the plan, then share it</h2>
+            <p className="eyebrow">Ready for your decision</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Approve updates, then share the week</h2>
             <div className="review-summary-strip">
               <span className="review-count-pill">
-                {data.changeSets.length} {data.changeSets.length === 1 ? 'change' : 'changes'} waiting
+                {data.changeSets.length} {data.changeSets.length === 1 ? 'change' : 'changes'} pending
               </span>
               <span className="review-count-pill subtle">
                 {data.manualReviews.length} {data.manualReviews.length === 1 ? 'stay to check' : 'stays to check'}
               </span>
             </div>
             <p className="review-emphasis-copy">
-              Handle suggested changes first, then add any extra cleans that still need to happen this week.
+              Start with suggested updates, then add any extra cleans that still need to happen.
             </p>
           </div>
         </article>
@@ -132,8 +132,8 @@ function ReviewRoute() {
 
       <section className="content-stack route-stack route-stack-review">
         <ReviewPanel
-          title="Suggested changes"
-          emptyCopy="No changes need your approval right now."
+          title="Suggested updates"
+          emptyCopy="You are all caught up for this week."
           changeSets={data.changeSets}
           busyKey={busyKey}
           onApprove={(changeSetId) =>

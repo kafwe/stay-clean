@@ -35,7 +35,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'description',
-        content: 'A private Cape Town cleaning scheduler for short-stay apartments.',
+        content: 'A friendly weekly cleaning planner for Cape Town short-stay homes.',
       },
     ],
     links: [
@@ -107,12 +107,12 @@ function RootNotFound() {
   return (
     <main className="mx-auto max-w-xl px-6 py-14">
       <p className="eyebrow">Page not found</p>
-      <h1 className="mt-2 text-2xl font-semibold text-(--ink-strong)">This page is not available</h1>
+      <h1 className="mt-2 text-2xl font-semibold text-(--ink-strong)">This page is not available right now</h1>
       <p className="mt-3 text-sm leading-7 text-(--ink-soft)">
         The link may be old, or the page may have moved.
       </p>
       <Link to="/" className="action-secondary mt-5 inline-flex">
-        Go to dashboard
+        Go to week view
       </Link>
     </main>
   )

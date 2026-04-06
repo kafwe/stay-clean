@@ -48,19 +48,19 @@ function App() {
     let tone: 'default' | 'attention' | 'changed' = 'default'
 
     if (changedDates.has(group.date)) {
-      badges.push('Changes waiting')
+      badges.push('Review changes')
       priority = 0
       tone = 'changed'
     }
 
     if (reviewDates.has(group.date)) {
-      badges.push('Review stay')
+      badges.push('Check long stay')
       priority = 0
       tone = 'changed'
     }
 
     if (isCurrentWeek && group.date < todayIso && group.rows.length > 0) {
-      badges.push('Check this day')
+      badges.push('Past due')
       priority = Math.min(priority, 1)
       tone = tone === 'changed' ? 'changed' : 'attention'
     }
@@ -110,10 +110,10 @@ function App() {
   const pendingReviewCount = data.changeSets.length + data.manualReviews.length
   const nextStepLabel =
     pendingReviewCount > 0
-      ? `Review ${pendingReviewCount} item${pendingReviewCount === 1 ? '' : 's'} before confirming the week`
+      ? `Review ${pendingReviewCount} item${pendingReviewCount === 1 ? '' : 's'} before you confirm the week`
       : data.weekStatus === 'confirmed'
-        ? 'Week confirmed and ready to share with the team'
-        : 'No blockers are waiting. Confirm the week once the plan looks right.'
+        ? 'Week confirmed and ready to share with the team.'
+        : 'Everything looks good. Confirm the week when you are ready.'
 
   useEffect(() => {
     setOpenDay((current) => {
@@ -148,7 +148,7 @@ function App() {
       await refresh()
       onSuccess?.()
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
       setBusyKey(null)
     }
@@ -216,7 +216,7 @@ function App() {
         <article className="overview-card overview-card-week">
           <div className="overview-copy">
             <p className="eyebrow">This week at a glance</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Keep the week calm and ready to run</h2>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Let&apos;s keep this week smooth</h2>
             <div className="overview-metrics">
               <span className="overview-metric">
                 <strong>{cleansLeft}</strong>
@@ -241,7 +241,7 @@ function App() {
             {pendingReviewCount > 0 ? (
               <Link to="/review" search={{ week: data.weekStart }} className="action-primary no-underline">
                 <Sparkles size={16} />
-                Review changes
+                Review updates
               </Link>
             ) : (
               <button
@@ -259,7 +259,7 @@ function App() {
                   ? 'Week confirmed'
                   : busyKey === 'confirm'
                     ? 'Saving...'
-                    : 'Confirm this week'}
+                    : 'Confirm week'}
               </button>
             )}
             <button
@@ -273,7 +273,7 @@ function App() {
               }
             >
               <RefreshCcw size={16} />
-              {busyKey === 'sync' ? 'Checking...' : 'Check for updates'}
+              {busyKey === 'sync' ? 'Refreshing...' : 'Refresh bookings'}
             </button>
           </div>
         </article>
@@ -291,10 +291,10 @@ function App() {
             <div>
               <p className="eyebrow">Needs your attention</p>
               <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                Review suggested changes and long stays before sharing the week.
+                Review updates and long stays before you share this week.
               </p>
             </div>
-            <span className="cleaner-chip">Open changes</span>
+            <span className="cleaner-chip">Open review</span>
           </Link>
         ) : null}
 
@@ -305,7 +305,7 @@ function App() {
               <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Cleaner availability</h2>
             </div>
             <p className="section-copy">
-              Open the team sheet to choose who can be assigned in {data.weekLabel}.
+              Choose who is available in {data.weekLabel}.
             </p>
           </div>
 
@@ -338,7 +338,7 @@ function App() {
               })
             ) : (
               <p className="text-sm leading-6 text-[var(--ink-soft)]">
-                Add cleaners first, then open the team sheet for this week.
+                Add at least one cleaner to set weekly availability.
               </p>
             )}
           </div>
@@ -354,7 +354,7 @@ function App() {
               }}
             >
               <Users size={16} />
-              {availabilityBusy ? 'Saving...' : 'Manage cleaner availability'}
+              {availabilityBusy ? 'Saving...' : 'Team availability'}
             </button>
           </div>
         </article>
@@ -394,16 +394,16 @@ function App() {
                 if (dayLabel) {
                   setAvailabilitySuccess(
                     isAvailable
-                      ? `${cleanerName} is available on ${dayLabel}.`
-                      : `${cleanerName} is off on ${dayLabel}.`,
+                      ? `${cleanerName} is set as available on ${dayLabel}.`
+                      : `${cleanerName} is marked off on ${dayLabel}.`,
                   )
                   return
                 }
 
                 setAvailabilitySuccess(
                   isAvailable
-                    ? `${cleanerName} is available for ${data.weekLabel}.`
-                    : `${cleanerName} will be left out of ${data.weekLabel}.`,
+                    ? `${cleanerName} is available for all of ${data.weekLabel}.`
+                    : `${cleanerName} is marked off for ${data.weekLabel}.`,
                 )
               },
             )
@@ -412,13 +412,13 @@ function App() {
         <article className="ledger-panel rounded-[1.75rem] p-4 panel-feature">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Needs attention first</p>
+              <p className="eyebrow">What to handle first</p>
               <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">
                 Weekly plan
               </h2>
             </div>
             <p className="section-copy">
-              Overdue days, changed days, and today are shown before the rest of the week.
+              Past-due days, changed days, and today are shown first.
             </p>
           </div>
 
@@ -448,7 +448,7 @@ function App() {
             <summary className="fold-panel-summary">
               <span className="fold-panel-heading">
                 <span className="fold-panel-heading-copy">
-                  <span className="eyebrow">No cleans scheduled</span>
+                  <span className="eyebrow">No cleans booked</span>
                   <span className="fold-panel-title">Quiet days</span>
                 </span>
                 <span className="fold-panel-heading-meta">
@@ -480,12 +480,12 @@ function App() {
         open={Boolean(editingAssignment)}
         title={editingAssignment ? `${editingAssignment.apartmentName} · ${formatDayLabel(editingAssignment.taskDate)}` : ''}
         deleteLabel={
-          editingAssignment?.sourceManualRequestId ? 'Delete this extra clean' : 'Remove from this week'
+          editingAssignment?.sourceManualRequestId ? 'Delete extra clean' : 'Remove clean from this week'
         }
         deleteHint={
           editingAssignment?.sourceManualRequestId
-            ? 'This extra clean was added by hand and will be removed from the plan.'
-            : 'This will remove the clean from the week you are viewing. A future booking refresh can add checkout cleans back.'
+            ? 'This extra clean will be removed from the weekly plan.'
+            : 'This clean will be removed from this week.'
         }
         cleanerId={editCleanerId}
         notes={editNotes}
@@ -622,12 +622,12 @@ function CleanerAvailabilitySheet({
   }
 
   return (
-    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Cleaner availability">
+    <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Team availability">
       <div className="sheet-panel sheet-panel-feature">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Week-by-week team</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Cleaner availability</h2>
+            <p className="eyebrow">Team schedule</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Availability</h2>
           </div>
           <button type="button" className="action-ghost sheet-close-button" onClick={onClose} disabled={availabilityBusy}>
             Close
@@ -635,7 +635,7 @@ function CleanerAvailabilitySheet({
         </div>
 
         <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-          Choose who can be assigned in {weekLabel}. This only changes the week you are viewing.
+          Set who can take cleans in {weekLabel}.
         </p>
         {successMessage ? (
           <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
@@ -683,7 +683,7 @@ function CleanerAvailabilitySheet({
                       </span>
                     </div>
                     <p className="availability-summary">{availabilityMeta.summary}</p>
-                    <div className="availability-day-grid" role="group" aria-label={`${cleaner.name} day-by-day availability`}>
+                    <div className="availability-day-grid" role="group" aria-label={`${cleaner.name} availability by day`}>
                       {weekDateList.map((dateIso) => {
                         const isAvailableForDay = !offDates.has(dateIso)
                         const dayBusyKey = `availability-${isAvailableForDay ? 'off' : 'on'}-${cleaner.id}-${dateIso}`
@@ -696,7 +696,7 @@ function CleanerAvailabilitySheet({
                             className={`availability-day-toggle ${isAvailableForDay ? 'is-on' : 'is-off'}`}
                             disabled={availabilityBusy}
                             aria-pressed={!isAvailableForDay}
-                            title={`${cleaner.name} is ${isAvailableForDay ? 'available' : 'off'} on ${formatDayLabel(dateIso)}`}
+                            title={`${cleaner.name}: ${isAvailableForDay ? 'available' : 'off'} on ${formatDayLabel(dateIso)}`}
                             onClick={() => {
                               onSetAvailability(cleaner.id, !isAvailableForDay, dateIso)
                             }}
@@ -725,7 +725,7 @@ function CleanerAvailabilitySheet({
                         onSetAvailability(cleaner.id, true)
                       }}
                     >
-                      {isSavingAvailable ? 'Saving...' : 'Use all week'}
+                      {isSavingAvailable ? 'Saving...' : 'Available all week'}
                     </button>
                     <button
                       type="button"
@@ -739,7 +739,7 @@ function CleanerAvailabilitySheet({
                         onSetAvailability(cleaner.id, false)
                       }}
                     >
-                      {isSavingOff ? 'Saving...' : 'Leave out all week'}
+                      {isSavingOff ? 'Saving...' : 'Off all week'}
                     </button>
                   </div>
                 </article>
@@ -747,7 +747,7 @@ function CleanerAvailabilitySheet({
             })
           ) : (
             <p className="text-sm leading-6 text-[var(--ink-soft)]">
-              Add a cleaner first, then choose who is available for {weekLabel}.
+              Add a cleaner to start setting availability for {weekLabel}.
             </p>
           )}
         </div>
@@ -761,8 +761,8 @@ function getAvailabilityPresentation(status: CleanerWeekAvailability['status']) 
     return {
       tone: 'off' as const,
       shortLabel: 'Off all week',
-      summary: 'This cleaner is excluded for every day in the selected week.',
-      tooltip: 'Off all week: this cleaner is unavailable for all 7 days.',
+      summary: 'Not scheduled this week.',
+      tooltip: 'Off all week',
     }
   }
 
@@ -770,15 +770,15 @@ function getAvailabilityPresentation(status: CleanerWeekAvailability['status']) 
     return {
       tone: 'partial' as const,
       shortLabel: 'Partial week',
-      summary: 'This cleaner is off on one or more days, but not the full week.',
-      tooltip: 'Partial week: this cleaner is unavailable on some days this week.',
+      summary: 'Available on some days this week.',
+      tooltip: 'Partial week availability',
     }
   }
 
   return {
     tone: 'on' as const,
-    shortLabel: 'On all week',
-    summary: 'This cleaner can be assigned on any day in the selected week.',
-    tooltip: 'On all week: this cleaner is available every day this week.',
+    shortLabel: 'Available all week',
+    summary: 'Available every day this week.',
+    tooltip: 'Available all week',
   }
 }

@@ -66,7 +66,7 @@ async function geocodeAddressWithNominatim(
   })
 
   if (!response.ok) {
-    throw new Error('Could not find coordinates for this address right now')
+    throw new Error('We could not find this address right now. Please try again.')
   }
 
   const payload = (await response.json().catch(() => null)) as
@@ -78,7 +78,7 @@ async function geocodeAddressWithNominatim(
   const longitude = Number(firstHit?.lon)
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new Error('Could not geocode this address. Please try a more specific address.')
+    throw new Error('We could not place that address. Try a more specific address.')
   }
 
   return { latitude, longitude }
@@ -97,7 +97,7 @@ async function geocodeAddressWithGoogle(
   const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${query.toString()}`)
 
   if (!response.ok) {
-    throw new Error('Could not find coordinates for this address right now')
+    throw new Error('We could not find this address right now. Please try again.')
   }
 
   const payload = (await response.json().catch(() => null)) as
@@ -119,7 +119,7 @@ async function geocodeAddressWithGoogle(
   const longitude = Number(firstHit?.geometry?.location?.lng)
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new Error('Could not geocode this address. Please try a more specific address.')
+    throw new Error('We could not place that address. Try a more specific address.')
   }
 
   return { latitude, longitude }
@@ -282,7 +282,7 @@ async function fetchAddressSuggestions(
   })
 
   if (!response.ok) {
-    throw new Error('Could not fetch place suggestions right now')
+    throw new Error('Address suggestions are unavailable right now')
   }
 
   const payload = (await response.json().catch(() => null)) as Array<NominatimSearchResult> | null
@@ -331,7 +331,7 @@ async function fetchAddressSuggestionsWithGoogle(
   )
 
   if (!autocompleteResponse.ok) {
-    throw new Error('Could not fetch place suggestions right now')
+    throw new Error('Address suggestions are unavailable right now')
   }
 
   const autocompletePayload = (await autocompleteResponse.json().catch(() => null)) as
@@ -470,7 +470,7 @@ app.post(
     const { password } = c.req.valid('json')
 
     if (password !== env.ADMIN_PASSWORD) {
-      return c.json({ error: 'Incorrect password' }, 401)
+      return c.json({ error: 'That password is not correct' }, 401)
     }
 
     const token = await createSessionToken(env.SESSION_SECRET)
@@ -497,7 +497,7 @@ app.use('/api/*', async (c, next) => {
 
   const token = getCookie(c, SESSION_COOKIE_NAME)
   if (!(await verifySessionToken(token, env.SESSION_SECRET))) {
-    return c.json({ error: 'Unauthorized' }, 401)
+    return c.json({ error: 'Please sign in again' }, 401)
   }
 
   await next()

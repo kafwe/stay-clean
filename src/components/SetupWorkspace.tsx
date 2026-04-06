@@ -53,7 +53,7 @@ async function postJson(url: string, body?: unknown) {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(payload?.error ?? 'Request failed')
+    throw new Error(payload?.error ?? 'Something went wrong. Please try again.')
   }
 }
 
@@ -67,7 +67,7 @@ async function getJson<TPayload>(url: string): Promise<TPayload> {
   })
 
   if (!response.ok) {
-    throw new Error('Request failed')
+    throw new Error('Something went wrong. Please try again.')
   }
 
   return (await response.json()) as TPayload
@@ -164,7 +164,7 @@ export function SetupWorkspace({
       await action()
       await onDone()
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
       setBusyKey(null)
     }
@@ -213,7 +213,7 @@ export function SetupWorkspace({
 
           setAddressSuggestions([])
           setIsAddressSuggestionsOpen(false)
-          setError('Address lookup is unavailable right now. You can still type the full address.')
+          setError('Address lookup is unavailable right now. You can still enter the full address.')
         })
         .finally(() => {
           if (!controller.signal.aborted) {
@@ -242,7 +242,7 @@ export function SetupWorkspace({
       await action()
     } catch (actionError) {
       rollback()
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
       setBusyKey(null)
     }
@@ -300,11 +300,11 @@ export function SetupWorkspace({
       <article className="ledger-panel rounded-[1.75rem] p-5 panel-soft">
         <div className="section-head">
           <div>
-            <p className="eyebrow">Less-used setup tools</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Homes and team</h2>
+            <p className="eyebrow">Workspace setup</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Homes and cleaners</h2>
           </div>
           <p className="section-copy">
-            These tools are here when the homes or cleaner list needs updating.
+            Update homes and cleaner names here.
           </p>
         </div>
 
@@ -315,7 +315,7 @@ export function SetupWorkspace({
                 <div>
                   <p className="section-title">Homes in the plan</p>
                   <p className="setup-summary-copy">
-                    Review addresses and feed links before adding another home.
+                    Keep your active homes up to date.
                   </p>
                 </div>
                 <button
@@ -362,7 +362,7 @@ export function SetupWorkspace({
                               ) : null}
                             </div>
                           ) : (
-                            <p className="home-card-muted">No booking feeds connected</p>
+                            <p className="home-card-muted">No booking feeds yet</p>
                           )}
                         </div>
                         <button
@@ -371,7 +371,7 @@ export function SetupWorkspace({
                           disabled={isDeleting}
                           onClick={() => {
                             const confirmed = window.confirm(
-                              `Delete ${apartment.colloquialName ?? apartment.name}? This removes its related bookings and schedule items.`,
+                              `Delete ${apartment.colloquialName ?? apartment.name}? This also removes related bookings and schedule items.`,
                             )
 
                             if (!confirmed) {
@@ -399,7 +399,7 @@ export function SetupWorkspace({
                 <div>
                   <p className="section-title">Current cleaners</p>
                   <p className="setup-summary-copy">
-                    Keep the active team visible here so edits feel lower risk.
+                    Keep the active team list current.
                   </p>
                 </div>
                 <button
@@ -601,9 +601,6 @@ export function SetupWorkspace({
             >
               <div className="space-y-1">
                 <h2 className="section-title">Add a home</h2>
-                <p className="text-sm leading-6 text-[var(--ink-soft)]">
-                  Enter the listing and address. We will pin the home location automatically.
-                </p>
               </div>
               {homeErrors.name ? (
                 <p className="text-xs text-[var(--accent-deep)]">{homeErrors.name.message}</p>
@@ -672,17 +669,14 @@ export function SetupWorkspace({
                 ) : null}
               </div>
               {isAddressSuggestionsLoading ? (
-                <p className="text-xs text-[var(--ink-soft)]">Finding matching addresses...</p>
-              ) : null}
-              {!isAddressSuggestionsLoading && addressSuggestions.length > 0 && !addressCoordinates ? (
-                <p className="text-xs text-[var(--ink-soft)]">Select a suggested address to save exact coordinates.</p>
+                <p className="text-xs text-[var(--ink-soft)]">Looking up addresses...</p>
               ) : null}
               {homeErrors.bookingIcalUrl ? (
                 <p className="text-xs text-[var(--accent-deep)]">{homeErrors.bookingIcalUrl.message}</p>
               ) : null}
               <input
                 className="field"
-                placeholder="Booking.com iCal link (optional)"
+                placeholder="Booking.com iCal URL (optional)"
                 {...registerHome('bookingIcalUrl')}
                 aria-invalid={homeErrors.bookingIcalUrl ? 'true' : undefined}
               />
@@ -691,12 +685,12 @@ export function SetupWorkspace({
               ) : null}
               <input
                 className="field"
-                placeholder="Airbnb iCal link (optional)"
+                placeholder="Airbnb iCal URL (optional)"
                 {...registerHome('airbnbIcalUrl')}
                 aria-invalid={homeErrors.airbnbIcalUrl ? 'true' : undefined}
               />
               <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
-                {busyKey === 'add-apartment' ? 'Finding location...' : 'Add home'}
+                {busyKey === 'add-apartment' ? 'Saving...' : 'Add home'}
               </button>
             </form>
           ) : null}
@@ -736,9 +730,6 @@ export function SetupWorkspace({
             >
               <div className="space-y-1">
                 <h2 className="section-title">Add a cleaner</h2>
-                <p className="text-sm leading-6 text-[var(--ink-soft)]">
-                  Add each teammate once. Pick a color to spot their assignments faster.
-                </p>
               </div>
               {addCleanerNameError ? (
                 <p className="text-xs text-[var(--accent-deep)]">{addCleanerNameError}</p>
@@ -758,7 +749,7 @@ export function SetupWorkspace({
               />
 
               <div className="space-y-2">
-                <p className="section-title">Choose a color</p>
+                <p className="section-title">Color</p>
                 <div className="theme-color-grid" role="radiogroup" aria-label="Cleaner color">
                   {THEME_CLEANER_COLORS.map((color) => {
                     const isSelected = selectedCleanerColor.toLocaleLowerCase() === color.hex.toLocaleLowerCase()

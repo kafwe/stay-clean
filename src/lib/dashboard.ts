@@ -245,14 +245,14 @@ export async function getDashboardSnapshot(weekStartOverride?: string): Promise<
     manualReviews,
     syncSummary: lastSync
       ? `Bookings checked ${formatDistanceToNow(new Date(lastSync.createdAt), { addSuffix: true })}`
-      : 'Bookings have not been checked yet.',
+      : 'Bookings have not been synced yet.',
     distanceMatrixPairs,
     apartmentsMissingCoordinates: apartments.filter(
       (apartment) => apartment.latitude === null || apartment.longitude === null,
     ).length,
     emptyStateReason:
       apartments.length === 0
-        ? 'Add homes and cleaner names to build the first week.'
+        ? 'Add homes and cleaners to build your first week.'
         : null,
   }
 }
@@ -291,7 +291,7 @@ async function resolveManualRequestLabel(input: {
     }
   }
 
-  throw new Error('Choose an apartment before adding the clean')
+  throw new Error('Pick a home before adding this clean')
 }
 
 export async function saveApartmentCoordinates(input: {
@@ -305,7 +305,7 @@ export async function saveApartmentCoordinates(input: {
 export async function addCleaner(input: { name: string; colorHex?: string | null }) {
   const normalizedName = input.name.trim()
   if (normalizedName.length < 2) {
-    throw new Error('Cleaner name must be at least 2 characters long')
+    throw new Error('Cleaner name needs at least 2 characters')
   }
 
   const existing = await listCleaners()
@@ -313,7 +313,7 @@ export async function addCleaner(input: { name: string; colorHex?: string | null
     (cleaner) => cleaner.name.trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
   )
   if (alreadyExists) {
-    throw new Error('Cleaner name already exists')
+    throw new Error('A cleaner with that name already exists')
   }
 
   const cleanedColorHex = normalizeCleanerColorHex(input.colorHex)
@@ -333,7 +333,7 @@ export async function updateCleanerName(input: {
 }) {
   const normalizedName = input.name.trim()
   if (normalizedName.length < 2) {
-    throw new Error('Cleaner name must be at least 2 characters long')
+    throw new Error('Cleaner name needs at least 2 characters')
   }
 
   const existing = await listCleaners()
@@ -343,7 +343,7 @@ export async function updateCleanerName(input: {
       cleaner.name.trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
   )
   if (alreadyExists) {
-    throw new Error('Cleaner name already exists')
+    throw new Error('A cleaner with that name already exists')
   }
 
   const currentCleaner = existing.find((cleaner) => cleaner.id === input.cleanerId)
@@ -398,7 +398,7 @@ export async function addManualRequestToWeek(input: {
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
 
   if (!run) {
-    throw new Error('Add homes and cleaner names before adding cleans to the week')
+    throw new Error('Add at least one home and cleaner before adding cleans')
   }
 
   await rebuildWeekPlan(weekStartIso, run.status)
@@ -414,14 +414,14 @@ export async function updateCleanerWeekAvailability(input: {
   const weekDateSet = new Set(weekDates(weekStartIso))
 
   if (input.date && !weekDateSet.has(input.date)) {
-    throw new Error('Choose a date within the selected week')
+    throw new Error('Choose a day inside the selected week')
   }
 
   const [apartments, cleaners] = await Promise.all([listApartments(), listCleaners()])
   const run = apartments.length || cleaners.length ? await ensureWeekPlan(weekStartIso) : null
 
   if (!run) {
-    throw new Error('Add homes and cleaner names before updating the team for the week')
+    throw new Error('Add at least one home and cleaner before updating availability')
   }
 
   await setCleanerAvailabilityForWeek({
@@ -455,7 +455,7 @@ export async function rejectSuggestedChange(changeSetId: string) {
 export async function approveSuggestedChange(changeSetId: string) {
   const changeSet = await getChangeSetById(changeSetId)
   if (!changeSet) {
-    throw new Error('Suggestion not found')
+    throw new Error('That update could not be found')
   }
 
   const run = await getWeekRunById(changeSet.scheduleRunId)
@@ -525,7 +525,7 @@ export async function applyQuickScheduleEdit(input: {
   const run = await ensureWeekPlan(weekStartIso)
 
   if (!run) {
-    throw new Error('No week plan is available yet')
+    throw new Error('No week plan is ready yet')
   }
 
   const [assignments, cleaners] = await Promise.all([getWeekAssignments(run.id), listCleaners()])
@@ -533,7 +533,7 @@ export async function applyQuickScheduleEdit(input: {
   const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
 
   if (!currentAssignment) {
-    throw new Error('The selected clean could not be found')
+    throw new Error('That clean could not be found')
   }
 
   const nextAssignments = resortAssignments(
@@ -571,7 +571,7 @@ export async function applyQuickScheduleEdit(input: {
     currentAssignment.cleanerId
 
   if (!changes.length && !notesChanged && !dateChanged && !cleanerChanged) {
-    throw new Error('Nothing changed')
+    throw new Error('No changes to save')
   }
 
   const summary = buildScheduleSummary(nextAssignments)
@@ -594,14 +594,14 @@ export async function deleteScheduleAssignment(input: {
   const run = await ensureWeekPlan(weekStartIso)
 
   if (!run) {
-    throw new Error('No week plan is available yet')
+    throw new Error('No week plan is ready yet')
   }
 
   const assignments = await getWeekAssignments(run.id)
   const currentAssignment = assignments.find((assignment) => assignment.id === input.assignmentId)
 
   if (!currentAssignment) {
-    throw new Error('The selected clean could not be found')
+    throw new Error('That clean could not be found')
   }
 
   if (currentAssignment.sourceManualRequestId) {
@@ -753,11 +753,11 @@ export async function regenerateWeekFromICal(
       assignments: nextAssignments,
     })
     await sendPushToManager({
-      title: 'StayClean draft ready',
+      title: 'Week draft ready',
       body:
         trigger === 'cron' && weekStartOverride === getNextWeekStartIso()
-          ? 'Next week is drafted and ready to review in the PWA.'
-          : 'Your current week draft is ready to review in the PWA.',
+          ? 'Next week is drafted and ready to review in the app.'
+          : 'This week\'s draft is ready to review in the app.',
       url: env.APP_BASE_URL ?? '/',
     })
     return
@@ -805,8 +805,8 @@ export async function regenerateWeekFromICal(
     changedAssignments: changes.length,
   })
   await sendPushToManager({
-    title: 'StayClean needs review',
-    body: `${changes.length} schedule change${changes.length === 1 ? '' : 's'} need approval for ${formatWeekLabel(
+    title: 'Week needs review',
+    body: `${changes.length} schedule change${changes.length === 1 ? '' : 's'} need your approval for ${formatWeekLabel(
       weekStartIso,
     )}.`,
     url: env.APP_BASE_URL ?? '/',

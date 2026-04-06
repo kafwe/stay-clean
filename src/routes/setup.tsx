@@ -33,7 +33,7 @@ function SetupRoute() {
       await action()
       await refresh()
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
     } finally {
       setBusyKey(null)
     }
@@ -54,7 +54,7 @@ function SetupRoute() {
       // Force a full navigation so the next screen is rendered with the cleared auth cookie.
       window.location.replace('/')
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong')
+      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
       setBusyKey(null)
     }
   }
@@ -64,8 +64,8 @@ function SetupRoute() {
       <AuthView
         busy={busyKey === 'login'}
         error={error}
-        title="Open the support tools"
-        body="Sign in to turn on phone reminders, share the week, or update homes and cleaners."
+        title="Open manager tools"
+        body="Sign in to manage homes, cleaners, and phone reminders."
         onSubmit={(password) => {
           void runAction('login', async () => {
             await postJson('/api/auth/login', { password })
@@ -79,7 +79,7 @@ function SetupRoute() {
     <MobileAppShell activeTab="more" weekStart={data.weekStart} pendingReviewCount={pendingReviewCount}>
       <div className="route-stage route-stage-setup">
       <WeekPanelHeader
-        eyebrow="Support tools"
+        eyebrow="Tools"
         title="More"
         status={data.weekStatus}
         showStatus={false}
@@ -91,10 +91,10 @@ function SetupRoute() {
       >
         <article className="overview-card overview-card-setup">
           <div className="overview-copy">
-            <p className="eyebrow">Support tools</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Background tasks and team setup</h2>
+            <p className="eyebrow">Manager tools</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--ink-strong)]">Setup and account</h2>
             <p className="support-overview-copy">
-              The weekly plan lives on the main screen. This area is intentionally quieter, for reminders and one-off setup work.
+              Use this area for occasional setup tasks.
             </p>
           </div>
         </article>
@@ -109,7 +109,7 @@ function SetupRoute() {
               <div>
                 <p className="text-sm font-semibold text-[var(--ink-strong)]">Phone reminders</p>
                 <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  On iPhone, install from Safari to Home Screen first, then enable reminders for this app.
+                  Turn on reminders for this manager phone.
                 </p>
               </div>
               <PwaClient authenticated={data.authenticated} vapidPublicKey={data.vapidPublicKey} />
@@ -119,7 +119,7 @@ function SetupRoute() {
               <div>
                 <p className="text-sm font-semibold text-[var(--accent-deep)]">Sign out of this device</p>
                 <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                  This will end the current manager session and require the password again.
+                  End this manager session on this device.
                 </p>
               </div>
               <button

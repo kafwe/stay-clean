@@ -9,18 +9,18 @@ export function getWeekStatusLabel(status: string | null) {
   }
 
   if (status === 'needs_review') {
-    return 'Changes waiting'
+    return 'Needs review'
   }
 
   if (status === 'draft') {
-    return 'Ready to check'
+    return 'Draft ready'
   }
 
-  return 'Getting started'
+  return 'Setting up'
 }
 
 export function WeekPanelHeader({
-  eyebrow = 'Week in view',
+  eyebrow = 'This week',
   title,
   status,
   showStatus = true,
@@ -135,7 +135,7 @@ export function DayCard({
       </div>
         <p className="day-subtitle">
           {group.rows.length === 0
-            ? 'Nothing booked'
+            ? 'No cleans booked'
             : `${group.rows.length} ${group.rows.length === 1 ? 'clean' : 'cleans'}`}
         </p>
       </div>
@@ -168,7 +168,7 @@ export function DayCard({
           ) : null}
           {alwaysOpen ? null : (
             <button type="button" className="day-toggle-chip" onClick={onToggle}>
-              {open ? 'Hide' : 'Open'}
+              {open ? 'Collapse' : 'Expand'}
             </button>
           )}
         </div>
@@ -178,7 +178,7 @@ export function DayCard({
         <div className="day-body">
           {group.rows.length === 0 ? (
             <p className="text-sm leading-7 text-[var(--ink-soft)]">
-              No cleaning is scheduled for this day.
+              No clean is scheduled for this day.
             </p>
           ) : (
             group.rows.map((row) => {
@@ -201,7 +201,7 @@ export function DayCard({
                         </p>
                       ) : null}
                       <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                        {row.notes ?? 'Scheduled clean'}
+                        {row.notes ?? 'Planned clean'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -223,7 +223,7 @@ export function DayCard({
                             aria-hidden="true"
                           />
                         ) : null}
-                        {row.cleanerName ?? 'Unassigned'}
+                        {row.cleanerName ?? 'Not assigned'}
                       </span>
                       {onRowSelect ? <span className="cleaner-chip subtle-chip">Edit</span> : null}
                     </div>
@@ -380,7 +380,7 @@ export function ReviewPanel({
 
   return (
     <article className="ledger-panel rounded-[1.75rem] p-5">
-      <p className="eyebrow">Waiting for you</p>
+      <p className="eyebrow">Pending review</p>
       <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{title}</h2>
 
       <div className="mt-5 space-y-4">
@@ -422,7 +422,7 @@ export function ReviewPanel({
                     void onApprove(changeSet.id)
                   }}
                 >
-                  {busyKey === `approve-${changeSet.id}` ? 'Saving...' : 'Use this change'}
+                  {busyKey === `approve-${changeSet.id}` ? 'Saving...' : 'Apply update'}
                 </button>
                 <button
                   type="button"
@@ -432,7 +432,7 @@ export function ReviewPanel({
                     void onReject(changeSet.id)
                   }}
                 >
-                  {busyKey === `reject-${changeSet.id}` ? 'Saving...' : 'Keep current plan'}
+                  {busyKey === `reject-${changeSet.id}` ? 'Saving...' : 'Keep as is'}
                 </button>
               </div>
             </div>
@@ -452,8 +452,8 @@ export function ManualReviewPanel({
 }) {
   return (
     <article className="ledger-panel rounded-[1.75rem] p-5">
-      <p className="eyebrow">Check these stays</p>
-      <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Long stays to review</h2>
+      <p className="eyebrow">Long stays</p>
+      <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Stays to check</h2>
       <div className="mt-4 space-y-3">
         {items.length ? (
           items.map((item) => (
@@ -469,7 +469,7 @@ export function ManualReviewPanel({
           ))
         ) : (
           <p className="text-sm leading-7 text-[var(--ink-soft)]">
-            No longer bookings need a check for this week.
+            No long stays need a check this week.
           </p>
         )}
       </div>
@@ -500,10 +500,10 @@ export function ManualJobPanel({
 }) {
   return (
     <article className="ledger-panel rounded-[1.75rem] p-5 panel-feature panel-review">
-      <p className="eyebrow">Add it yourself</p>
+      <p className="eyebrow">Add manually</p>
       <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">Add an extra clean</h2>
       <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-        Use this when a clean needs to be added by hand for the week.
+        Use this for one-off cleans.
       </p>
       {successMessage ? (
         <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
@@ -519,7 +519,7 @@ export function ManualJobPanel({
         }}
       >
         <select className="field" value={taskDate} onChange={(event) => onTaskDateChange(event.target.value)}>
-          <option value="">Choose a day</option>
+          <option value="">Choose day</option>
           {dateOptions.map((date) => (
             <option key={date} value={date}>
               {formatDayLabel(date)}
@@ -527,7 +527,7 @@ export function ManualJobPanel({
           ))}
         </select>
         <select className="field" value={apartmentId} onChange={(event) => onApartmentChange(event.target.value)}>
-          <option value="">Choose apartment</option>
+          <option value="">Choose home</option>
           {apartments.map((apartment) => (
             <option key={apartment.id} value={apartment.id}>
               {apartment.colloquialName ?? apartment.name}
@@ -535,7 +535,7 @@ export function ManualJobPanel({
           ))}
         </select>
         <button type="submit" className="action-secondary w-full" disabled={busy || !taskDate || !apartmentId}>
-          {busy ? 'Adding...' : 'Add extra clean'}
+          {busy ? 'Adding...' : 'Add clean'}
         </button>
       </form>
     </article>
@@ -564,20 +564,16 @@ export function ManualJobSheet({
   onSubmit: () => void
 }) {
   return (
-    <SheetDialog open={open} onClose={onClose} ariaLabel="Add an extra clean" panelClassName="sheet-panel-feature">
+    <SheetDialog open={open} onClose={onClose} ariaLabel="Add clean" panelClassName="sheet-panel-feature">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Add an extra clean</p>
+            <p className="eyebrow">Add clean</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{dayLabel}</h2>
           </div>
           <button type="button" className="action-ghost sheet-close-button" onClick={onClose}>
             Close
           </button>
         </div>
-
-        <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-          Add a clean for this day and it will appear in the week straight away.
-        </p>
         {successMessage ? (
           <section className="inline-feedback inline-feedback-success" role="status" aria-live="polite">
             {successMessage}
@@ -597,7 +593,7 @@ export function ManualJobSheet({
             onChange={(event) => onApartmentChange(event.target.value)}
             data-autofocus="true"
           >
-            <option value="">Choose apartment</option>
+            <option value="">Choose home</option>
             {apartments.map((apartment) => (
               <option key={apartment.id} value={apartment.id}>
                 {apartment.colloquialName ?? apartment.name}
@@ -657,10 +653,10 @@ export function QuickEditSheet({
   onDelete: () => void
 }) {
   return (
-    <SheetDialog open={open} onClose={onClose} ariaLabel="Quick edit clean">
+    <SheetDialog open={open} onClose={onClose} ariaLabel="Edit clean">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Quick edit</p>
+            <p className="eyebrow">Edit clean</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--ink-strong)]">{title}</h2>
             {bookingUrl ? (
               <a href={bookingUrl} target="_blank" rel="noreferrer" className="booking-context-link mt-2">
@@ -683,7 +679,7 @@ export function QuickEditSheet({
               onChange={(event) => onCleanerChange(event.target.value)}
               data-autofocus="true"
             >
-              <option value="">Unassigned</option>
+              <option value="">Not assigned</option>
               {cleaners.map((cleaner) => (
                 <option key={cleaner.id} value={cleaner.id}>
                   {cleaner.name}
@@ -710,7 +706,7 @@ export function QuickEditSheet({
               className="field"
               value={notes}
               onChange={(event) => onNotesChange(event.target.value)}
-              placeholder="Add a helpful note for this clean."
+              placeholder="Add notes for this clean."
             />
           </label>
         </div>
@@ -719,7 +715,7 @@ export function QuickEditSheet({
           <div>
             <p className="text-sm font-semibold text-[var(--ink-strong)]">{deleteLabel}</p>
             <p className="mt-1 text-sm leading-7 text-[var(--ink-soft)]">
-              {deleteHint ?? 'This will remove the clean from the week you are viewing.'}
+              {deleteHint ?? 'This clean will be removed from this week.'}
             </p>
           </div>
           <button type="button" className="action-danger" disabled={deleting} onClick={onDelete}>

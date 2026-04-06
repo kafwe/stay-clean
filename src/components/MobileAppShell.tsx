@@ -169,7 +169,7 @@ export function MobileAppShell({
                   </span>
                 ) : null}
               </span>
-              <span>Changes</span>
+              <span>Review</span>
             </Link>
             <Link
               to="/setup"
@@ -177,7 +177,7 @@ export function MobileAppShell({
               className={`bottom-nav-link ${activeTab === 'more' ? 'is-active' : ''}`}
             >
               <Settings2 size={18} />
-              <span>More</span>
+              <span>Tools</span>
             </Link>
           </nav>
         </div>
