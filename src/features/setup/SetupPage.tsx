@@ -1,6 +1,5 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PwaClient } from '#/components/PwaClient'
 import { SetupWorkspace } from '#/components/SetupWorkspace'
@@ -18,20 +17,6 @@ export function SetupPage() {
 
   async function refresh() {
     await router.invalidate({ sync: true })
-  }
-
-  async function runAction(key: string, action: () => Promise<void>) {
-    setBusyKey(key)
-    setError(null)
-
-    try {
-      await action()
-      await refresh()
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
-    } finally {
-      setBusyKey(null)
-    }
   }
 
   async function signOut() {
@@ -52,22 +37,6 @@ export function SetupPage() {
       setError(actionError instanceof Error ? actionError.message : 'Something went wrong. Please try again.')
       setBusyKey(null)
     }
-  }
-
-  if (!data.authenticated) {
-    return (
-      <AuthView
-        busy={busyKey === 'login'}
-        error={error}
-        title="Open manager tools"
-        body="Sign in to manage homes, cleaners, and phone reminders."
-        onSubmit={(password) => {
-          void runAction('login', async () => {
-            await postJson('/api/auth/login', { password })
-          })
-        }}
-      />
-    )
   }
 
   return (

@@ -1,6 +1,5 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
-import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { ManualJobPanel, ManualReviewPanel, ReviewPanel, WeekPanelHeader } from '#/components/WeekSections'
@@ -66,20 +65,6 @@ export function ReviewPage() {
         }),
       })
     })
-  }
-
-  if (!data.authenticated) {
-    return (
-      <AuthView
-        busy={busyKey === 'login'}
-        error={error}
-        onSubmit={(password) => {
-          void runAction('login', async () => {
-            await postJson('/api/auth/login', { password })
-          })
-        }}
-      />
-    )
   }
 
   return (

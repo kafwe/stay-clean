@@ -1,6 +1,7 @@
 import { ClipboardList, House, Settings2 } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef } from 'react'
+import { plannerNavOptions } from '#/lib/planner-navigation'
 
 type MobileTab = 'week' | 'changes' | 'more' | null
 
@@ -28,6 +29,7 @@ export function MobileAppShell({
     swiping: boolean
     interactive: boolean
   } | null>(null)
+  const navOptions = plannerNavOptions(weekStart)
 
   const triggerHaptic = useEffectEvent(() => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -149,16 +151,14 @@ export function MobileAppShell({
         <div className="bottom-nav-wrap">
           <nav className="bottom-nav" aria-label="Main">
             <Link
-              to="/"
-              search={(prev) => ({ ...prev, week: weekStart })}
+              {...navOptions.week}
               className={`bottom-nav-link ${activeTab === 'week' ? 'is-active' : ''}`}
             >
               <House size={18} />
               <span>Week</span>
             </Link>
             <Link
-              to="/review"
-              search={(prev) => ({ ...prev, week: weekStart })}
+              {...navOptions.changes}
               className={`bottom-nav-link ${activeTab === 'changes' ? 'is-active' : ''} ${pendingReviewCount > 0 ? 'has-alert' : ''}`}
             >
               <span className="bottom-nav-icon-wrap">
@@ -172,8 +172,7 @@ export function MobileAppShell({
               <span>Review</span>
             </Link>
             <Link
-              to="/setup"
-              search={(prev) => ({ ...prev, week: weekStart })}
+              {...navOptions.more}
               className={`bottom-nav-link ${activeTab === 'more' ? 'is-active' : ''}`}
             >
               <Settings2 size={18} />

@@ -2,12 +2,12 @@ import { CalendarCheck2, RefreshCcw, Sparkles, Users } from 'lucide-react'
 import { Link, getRouteApi, useRouter } from '@tanstack/react-router'
 import { startTransition, useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { AuthView } from '#/components/AuthView'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PdfExportButton } from '#/components/PdfExportButton'
 import { DayCard, ManualJobSheet, QuickEditSheet, WeekPanelHeader } from '#/components/WeekSections'
 import { formatDayLabel, getTodayIsoInTimezone, isoInWeek, shiftWeek, weekDates } from '#/lib/date'
 import { postJson } from '#/lib/dashboard-page'
+import { plannerNavOptions } from '#/lib/planner-navigation'
 import type { Cleaner, CleanerAvailability, CleanerWeekAvailability, ScheduleAssignment } from '#/lib/types'
 
 const plannerRoute = getRouteApi('/_planner')
@@ -16,6 +16,7 @@ export function WeekPage() {
   const data = plannerRoute.useLoaderData()
   const search = plannerRoute.useSearch()
   const router = useRouter()
+  const navOptions = plannerNavOptions(data.weekStart)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
@@ -174,20 +175,6 @@ export function WeekPage() {
     })
   }
 
-  if (!data.authenticated) {
-    return (
-      <AuthView
-        busy={busyKey === 'login'}
-        error={error}
-        onSubmit={(password) => {
-          void runAction('login', async () => {
-            await postJson('/api/auth/login', { password })
-          })
-        }}
-      />
-    )
-  }
-
   return (
     <MobileAppShell
       activeTab="week"
@@ -240,8 +227,7 @@ export function WeekPage() {
             <div className="overview-actions overview-actions-priority">
               {pendingReviewCount > 0 ? (
                 <Link
-                  to="/review"
-                  search={(prev) => ({ ...prev, week: data.weekStart })}
+                  {...navOptions.changes}
                   className="action-primary no-underline"
                 >
                   <Sparkles size={16} />
@@ -292,8 +278,7 @@ export function WeekPage() {
         <section className="content-stack route-stack route-stack-week">
           {data.changeSets.length || data.manualReviews.length ? (
             <Link
-              to="/review"
-              search={(prev) => ({ ...prev, week: data.weekStart })}
+              {...navOptions.changes}
               className="review-callout review-callout-week no-underline"
             >
               <div>
