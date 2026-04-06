@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { MobileAppShell } from '#/components/MobileAppShell'
 import { PwaClient } from '#/components/PwaClient'
 import { SetupWorkspace } from '#/components/SetupWorkspace'
-import { WeekPanelHeader } from '#/components/WeekSections'
+import { WeekPanelHeader } from '#/components/week-sections/WeekPanelHeader'
 import { postJson } from '#/lib/dashboard-page'
 
 const plannerRoute = getRouteApi('/_planner')

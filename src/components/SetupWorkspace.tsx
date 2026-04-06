@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { AddApartmentForm } from '#/components/setup-workspace/AddApartmentForm'
+import { AddCleanerForm } from '#/components/setup-workspace/AddCleanerForm'
+import { ApartmentListPanel } from '#/components/setup-workspace/ApartmentListPanel'
+import { CleanerListPanel } from '#/components/setup-workspace/CleanerListPanel'
+import type { PlaceSuggestion } from '#/components/setup-workspace/types'
 import type { Apartment, Cleaner } from '#/lib/types'
 import {
   normalizeCleanerColorHex,
@@ -13,12 +18,6 @@ import {
   cleanerUpdateSchema,
 } from '#/lib/validation'
 import type { z } from 'zod'
-
-interface PlaceSuggestion {
-  label: string
-  latitude: number
-  longitude: number
-}
 
 function extractCountryCodeFromLocale(locale: string) {
   const match = locale.trim().match(/[-_]([A-Za-z]{2})$/)
@@ -294,6 +293,203 @@ export function SetupWorkspace({
       : editCleanerErrors.name?.message
   const activeHomeForm = activeTool === 'home'
   const activeCleanerForm = activeTool === 'cleaner'
+  const editCleanerNameInputProps = registerEditCleaner('name', {
+    onChange: () => {
+      if (editCleanerErrors.name) {
+        clearEditCleanerErrors('name')
+      }
+    },
+  })
+
+  function handleDeleteApartment(apartment: Apartment) {
+    const confirmed = window.confirm(
+      `Delete ${apartment.colloquialName ?? apartment.name}? This also removes related bookings and schedule items.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    void runAction(`delete-apartment-${apartment.id}`, async () => {
+      await postJson(`/api/setup/apartments/${apartment.id}/delete`)
+    })
+  }
+
+  function handleStartCleanerEdit(cleaner: Cleaner) {
+    setEditingCleanerId(cleaner.id)
+    resetEditCleanerForm({ name: cleaner.name })
+  }
+
+  function handleCancelCleanerEdit() {
+    setEditingCleanerId(null)
+    resetEditCleanerForm({ name: '' })
+  }
+
+  function handleSaveCleanerEdit(cleaner: Cleaner) {
+    void handleEditCleanerSubmit((values) => {
+      if (editingCleanerNameAlreadyExists) {
+        setEditCleanerFormError('name', {
+          type: 'manual',
+          message: 'That cleaner already exists.',
+        })
+        return
+      }
+
+      const previousCleaners = localCleaners.map((item) => ({ ...item }))
+      const nextName = values.name
+
+      void runOptimisticCleanerAction(
+        `update-cleaner-${cleaner.id}`,
+        () => {
+          setLocalCleaners((current) =>
+            current.map((item) =>
+              item.id === cleaner.id ? { ...item, name: nextName } : item,
+            ),
+          )
+          setEditingCleanerId(null)
+          resetEditCleanerForm({ name: '' })
+        },
+        () => {
+          setLocalCleaners(previousCleaners)
+          setEditingCleanerId(cleaner.id)
+          resetEditCleanerForm({ name: nextName })
+        },
+        async () => {
+          await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
+            name: nextName,
+          })
+        },
+      )
+    })()
+  }
+
+  function handleDeleteCleaner(cleaner: Cleaner) {
+    const confirmed = window.confirm(
+      `Delete ${cleaner.name}? Existing assignments will be kept but unassigned.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    const previousCleaners = localCleaners.map((item) => ({ ...item }))
+
+    void runOptimisticCleanerAction(
+      `delete-cleaner-${cleaner.id}`,
+      () => {
+        setLocalCleaners((current) =>
+          current.filter((item) => item.id !== cleaner.id),
+        )
+
+        if (editingCleanerId === cleaner.id) {
+          setEditingCleanerId(null)
+          resetEditCleanerForm({ name: '' })
+        }
+      },
+      () => {
+        setLocalCleaners(previousCleaners)
+      },
+      async () => {
+        await postJson(`/api/setup/cleaners/${cleaner.id}/delete`)
+      },
+    )
+  }
+
+  const homeNameInputProps = registerHome('name')
+  const homeAddressInputProps = registerHome('address')
+  const homeBookingIcalUrlInputProps = registerHome('bookingIcalUrl')
+  const homeAirbnbIcalUrlInputProps = registerHome('airbnbIcalUrl')
+  const cleanerNameInputProps = registerCleaner('name', {
+    onChange: () => {
+      if (cleanerErrors.name) {
+        clearCleanerErrors('name')
+      }
+    },
+  })
+
+  const handleAddApartmentSubmit = handleHomeSubmit((values) => {
+    void runAction('add-apartment', async () => {
+      await postJson('/api/setup/apartments', {
+        ...values,
+        latitude: addressCoordinates?.latitude,
+        longitude: addressCoordinates?.longitude,
+      })
+      resetHomeForm()
+      setAddressCoordinates(null)
+      setAddressSuggestions([])
+      setIsAddressSuggestionsOpen(false)
+    })
+  })
+
+  const handleAddCleanerSubmit = handleCleanerSubmit((values) => {
+    if (cleanerAlreadyExists) {
+      setCleanerFormError('name', {
+        type: 'manual',
+        message: 'That cleaner already exists.',
+      })
+      return
+    }
+
+    if (!isThemeCleanerColor(selectedCleanerColor)) {
+      setCleanerFormError('colorHex', {
+        type: 'manual',
+        message: 'Choose one of the suggested theme colors',
+      })
+      return
+    }
+
+    void runAction('add-cleaner', async () => {
+      await postJson('/api/setup/cleaners', {
+        ...values,
+        colorHex: selectedCleanerColor,
+      })
+      resetCleanerForm({
+        name: '',
+        colorHex: fallbackCleanerColor,
+      })
+    })
+  })
+
+  function handleAddressChange(nextAddress: string) {
+    setHomeValue('address', nextAddress, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    setIsAddressSuggestionsOpen(true)
+    const matchedSuggestion = addressSuggestions.find(
+      (suggestion) => suggestion.label === nextAddress,
+    )
+    setAddressCoordinates(
+      matchedSuggestion
+        ? {
+            latitude: matchedSuggestion.latitude,
+            longitude: matchedSuggestion.longitude,
+          }
+        : null,
+    )
+    clearHomeErrors('address')
+  }
+
+  function handleAddressSuggestionSelect(suggestion: PlaceSuggestion) {
+    setHomeValue('address', suggestion.label, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    setAddressCoordinates({
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+    })
+    setIsAddressSuggestionsOpen(false)
+    clearHomeErrors('address')
+  }
+
+  function handleCleanerColorSelect(colorHex: string) {
+    setCleanerValue('colorHex', colorHex, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    clearCleanerErrors('colorHex')
+  }
 
   return (
     <section className="content-stack">
@@ -310,482 +506,61 @@ export function SetupWorkspace({
 
         <div className="mt-5 space-y-3">
           <div className="setup-summary-grid">
-            <article className="fold-panel setup-summary-panel">
-              <div className="setup-summary-head">
-                <div>
-                  <p className="section-title">Homes in the plan</p>
-                  <p className="setup-summary-copy">
-                    Keep your active homes up to date.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={activeHomeForm ? 'action-ghost' : 'action-secondary'}
-                  onClick={() => setActiveTool(activeHomeForm ? null : 'home')}
-                >
-                  {activeHomeForm ? 'Hide form' : 'Add a home'}
-                </button>
-              </div>
+            <ApartmentListPanel
+              apartments={apartments}
+              active={activeHomeForm}
+              busyKey={busyKey}
+              onToggle={() => setActiveTool(activeHomeForm ? null : 'home')}
+              onDeleteApartment={handleDeleteApartment}
+            />
 
-              {apartments.length ? (
-                <div className="home-list-grid setup-summary-list">
-                  {apartments.map((apartment) => {
-                    const deleteKey = `delete-apartment-${apartment.id}`
-                    const isDeleting = busyKey === deleteKey
-
-                    return (
-                      <article key={apartment.id} className="home-card">
-                        <div>
-                          <p className="home-card-name">{apartment.colloquialName ?? apartment.name}</p>
-                          <p className="home-card-address">{apartment.address}</p>
-                          {apartment.bookingIcalUrl || apartment.airbnbIcalUrl ? (
-                            <div className="space-y-1">
-                              {apartment.bookingIcalUrl ? (
-                                <a
-                                  href={apartment.bookingIcalUrl}
-                                  className="home-card-link"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Booking.com iCal
-                                </a>
-                              ) : null}
-                              {apartment.airbnbIcalUrl ? (
-                                <a
-                                  href={apartment.airbnbIcalUrl}
-                                  className="home-card-link"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Airbnb iCal
-                                </a>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <p className="home-card-muted">No booking feeds yet</p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="action-ghost home-delete-button"
-                          disabled={isDeleting}
-                          onClick={() => {
-                            const confirmed = window.confirm(
-                              `Delete ${apartment.colloquialName ?? apartment.name}? This also removes related bookings and schedule items.`,
-                            )
-
-                            if (!confirmed) {
-                              return
-                            }
-
-                            void runAction(deleteKey, async () => {
-                              await postJson(`/api/setup/apartments/${apartment.id}/delete`)
-                            })
-                          }}
-                        >
-                          {isDeleting ? 'Deleting...' : 'Delete home'}
-                        </button>
-                      </article>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm leading-6 text-[var(--ink-soft)]">No homes added yet.</p>
-              )}
-            </article>
-
-            <article className="fold-panel setup-summary-panel">
-              <div className="setup-summary-head">
-                <div>
-                  <p className="section-title">Current cleaners</p>
-                  <p className="setup-summary-copy">
-                    Keep the active team list current.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={activeCleanerForm ? 'action-ghost' : 'action-secondary'}
-                  onClick={() => setActiveTool(activeCleanerForm ? null : 'cleaner')}
-                >
-                  {activeCleanerForm ? 'Hide form' : 'Add a cleaner'}
-                </button>
-              </div>
-
-              {localCleaners.length ? (
-                <div className="home-list-grid setup-summary-list">
-                  {localCleaners.map((cleaner) => {
-                    const isEditing = editingCleanerId === cleaner.id
-                    const isUpdating = busyKey === `update-cleaner-${cleaner.id}`
-                    const isDeleting = busyKey === `delete-cleaner-${cleaner.id}`
-
-                    return (
-                      <article
-                        key={cleaner.id}
-                        className={`home-card cleaner-card ${isEditing ? 'is-editing' : ''}`}
-                      >
-                        <div className="cleaner-entry-main">
-                          <span className="cleaner-chip">
-                            <span
-                              className="cleaner-dot"
-                              style={{ backgroundColor: cleaner.colorHex ?? '#7ea8f8' }}
-                              aria-hidden="true"
-                            />
-                            {cleaner.name}
-                          </span>
-
-                          {isEditing ? (
-                            <div className="cleaner-edit-wrap">
-                              {editingCleanerNameError ? (
-                                <p className="text-xs text-[var(--accent-deep)]">{editingCleanerNameError}</p>
-                              ) : null}
-                              <input
-                                className="field cleaner-edit-input"
-                                {...registerEditCleaner('name', {
-                                  onChange: () => {
-                                    if (editCleanerErrors.name) {
-                                      clearEditCleanerErrors('name')
-                                    }
-                                  },
-                                })}
-                                autoFocus
-                                aria-invalid={editingCleanerNameError ? 'true' : undefined}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className={`cleaner-entry-actions ${isEditing ? 'is-editing' : ''}`}>
-                          {isEditing ? (
-                            <>
-                              <button
-                                type="button"
-                                className="cleaner-action-button cleaner-action-save"
-                                disabled={
-                                  isUpdating ||
-                                  editingCleanerNameTrimmed.length < 2 ||
-                                  editingCleanerNameAlreadyExists
-                                }
-                                onClick={() => {
-                                  void handleEditCleanerSubmit((values) => {
-                                    if (editingCleanerNameAlreadyExists) {
-                                      setEditCleanerFormError('name', {
-                                        type: 'manual',
-                                        message: 'That cleaner already exists.',
-                                      })
-                                      return
-                                    }
-
-                                    const previousCleaners = localCleaners.map((item) => ({ ...item }))
-                                    const nextName = values.name
-
-                                    void runOptimisticCleanerAction(
-                                      `update-cleaner-${cleaner.id}`,
-                                      () => {
-                                        setLocalCleaners((current) =>
-                                          current.map((item) =>
-                                            item.id === cleaner.id ? { ...item, name: nextName } : item,
-                                          ),
-                                        )
-                                        setEditingCleanerId(null)
-                                        resetEditCleanerForm({ name: '' })
-                                      },
-                                      () => {
-                                        setLocalCleaners(previousCleaners)
-                                        setEditingCleanerId(cleaner.id)
-                                        resetEditCleanerForm({ name: nextName })
-                                      },
-                                      async () => {
-                                        await postJson(`/api/setup/cleaners/${cleaner.id}/update`, {
-                                          name: nextName,
-                                        })
-                                      },
-                                    )
-                                  })()
-                                }}
-                              >
-                                {isUpdating ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                type="button"
-                                className="cleaner-action-button cleaner-action-cancel"
-                                disabled={isUpdating}
-                                onClick={() => {
-                                  setEditingCleanerId(null)
-                                  resetEditCleanerForm({ name: '' })
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                className="cleaner-action-button cleaner-action-edit"
-                                disabled={isDeleting}
-                                onClick={() => {
-                                  setEditingCleanerId(cleaner.id)
-                                  resetEditCleanerForm({ name: cleaner.name })
-                                }}
-                              >
-                                Edit name
-                              </button>
-                              <button
-                                type="button"
-                                className="cleaner-action-button cleaner-action-delete"
-                                disabled={isDeleting}
-                                onClick={() => {
-                                  const confirmed = window.confirm(
-                                    `Delete ${cleaner.name}? Existing assignments will be kept but unassigned.`,
-                                  )
-
-                                  if (!confirmed) {
-                                    return
-                                  }
-
-                                  const previousCleaners = localCleaners.map((item) => ({ ...item }))
-
-                                  void runOptimisticCleanerAction(
-                                    `delete-cleaner-${cleaner.id}`,
-                                    () => {
-                                      setLocalCleaners((current) =>
-                                        current.filter((item) => item.id !== cleaner.id),
-                                      )
-
-                                      if (editingCleanerId === cleaner.id) {
-                                        setEditingCleanerId(null)
-                                        resetEditCleanerForm({ name: '' })
-                                      }
-                                    },
-                                    () => {
-                                      setLocalCleaners(previousCleaners)
-                                    },
-                                    async () => {
-                                      await postJson(`/api/setup/cleaners/${cleaner.id}/delete`)
-                                    },
-                                  )
-                                }}
-                              >
-                                {isDeleting ? 'Deleting...' : 'Delete'}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm leading-6 text-[var(--ink-soft)]">No cleaners added yet.</p>
-              )}
-            </article>
+            <CleanerListPanel
+              cleaners={localCleaners}
+              active={activeCleanerForm}
+              busyKey={busyKey}
+              editingCleanerId={editingCleanerId}
+              editingCleanerNameError={editingCleanerNameError}
+              editingCleanerNameTrimmed={editingCleanerNameTrimmed}
+              editingCleanerNameAlreadyExists={editingCleanerNameAlreadyExists}
+              editNameInputProps={editCleanerNameInputProps}
+              onToggle={() => setActiveTool(activeCleanerForm ? null : 'cleaner')}
+              onStartEdit={handleStartCleanerEdit}
+              onCancelEdit={handleCancelCleanerEdit}
+              onSaveEdit={handleSaveCleanerEdit}
+              onDeleteCleaner={handleDeleteCleaner}
+            />
           </div>
 
-          {activeHomeForm ? (
-            <form
-              className="fold-panel space-y-3"
-              noValidate
-              onSubmit={handleHomeSubmit((values) => {
-                void runAction('add-apartment', async () => {
-                  await postJson('/api/setup/apartments', {
-                    ...values,
-                    latitude: addressCoordinates?.latitude,
-                    longitude: addressCoordinates?.longitude,
-                  })
-                  resetHomeForm()
-                  setAddressCoordinates(null)
-                  setAddressSuggestions([])
-                  setIsAddressSuggestionsOpen(false)
-                })
-              })}
-            >
-              <div className="space-y-1">
-                <h2 className="section-title">Add a home</h2>
-              </div>
-              {homeErrors.name ? (
-                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.name.message}</p>
-              ) : null}
-              <input
-                className="field"
-                placeholder="Listing name"
-                {...registerHome('name')}
-                aria-invalid={homeErrors.name ? 'true' : undefined}
-              />
-              <div className="address-field-wrap">
-                {homeErrors.address ? (
-                  <p className="mb-2 text-xs text-[var(--accent-deep)]">{homeErrors.address.message}</p>
-                ) : null}
-                <input
-                  className="field"
-                  placeholder="Street address"
-                  {...registerHome('address')}
-                  onChange={(event) => {
-                    const nextAddress = event.target.value
-                    setHomeValue('address', nextAddress, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                    setIsAddressSuggestionsOpen(true)
-                    const matchedSuggestion = addressSuggestions.find(
-                      (suggestion) => suggestion.label === nextAddress,
-                    )
-                    setAddressCoordinates(
-                      matchedSuggestion
-                        ? {
-                            latitude: matchedSuggestion.latitude,
-                            longitude: matchedSuggestion.longitude,
-                          }
-                        : null,
-                    )
-                    clearHomeErrors('address')
-                  }}
-                  autoComplete="off"
-                  aria-invalid={homeErrors.address ? 'true' : undefined}
-                />
-                {shouldShowAddressSuggestions ? (
-                  <div className="address-suggestions" role="listbox" aria-label="Address suggestions">
-                    {addressSuggestions.map((suggestion) => (
-                      <button
-                        key={`${suggestion.label}-${suggestion.latitude}-${suggestion.longitude}`}
-                        type="button"
-                        className="address-suggestion-item"
-                        onClick={() => {
-                          setHomeValue('address', suggestion.label, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          })
-                          setAddressCoordinates({
-                            latitude: suggestion.latitude,
-                            longitude: suggestion.longitude,
-                          })
-                          setIsAddressSuggestionsOpen(false)
-                          clearHomeErrors('address')
-                        }}
-                      >
-                        {suggestion.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              {isAddressSuggestionsLoading ? (
-                <p className="text-xs text-[var(--ink-soft)]">Looking up addresses...</p>
-              ) : null}
-              {homeErrors.bookingIcalUrl ? (
-                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.bookingIcalUrl.message}</p>
-              ) : null}
-              <input
-                className="field"
-                placeholder="Booking.com iCal URL (optional)"
-                {...registerHome('bookingIcalUrl')}
-                aria-invalid={homeErrors.bookingIcalUrl ? 'true' : undefined}
-              />
-              {homeErrors.airbnbIcalUrl ? (
-                <p className="text-xs text-[var(--accent-deep)]">{homeErrors.airbnbIcalUrl.message}</p>
-              ) : null}
-              <input
-                className="field"
-                placeholder="Airbnb iCal URL (optional)"
-                {...registerHome('airbnbIcalUrl')}
-                aria-invalid={homeErrors.airbnbIcalUrl ? 'true' : undefined}
-              />
-              <button type="submit" className="action-secondary" disabled={busyKey === 'add-apartment'}>
-                {busyKey === 'add-apartment' ? 'Saving...' : 'Add home'}
-              </button>
-            </form>
-          ) : null}
+          <AddApartmentForm
+            visible={activeHomeForm}
+            busy={busyKey === 'add-apartment'}
+            nameError={homeErrors.name?.message}
+            addressError={homeErrors.address?.message}
+            bookingIcalUrlError={homeErrors.bookingIcalUrl?.message}
+            airbnbIcalUrlError={homeErrors.airbnbIcalUrl?.message}
+            addressSuggestions={addressSuggestions}
+            shouldShowAddressSuggestions={shouldShowAddressSuggestions}
+            isAddressSuggestionsLoading={isAddressSuggestionsLoading}
+            nameInputProps={homeNameInputProps}
+            addressInputProps={homeAddressInputProps}
+            bookingIcalUrlInputProps={homeBookingIcalUrlInputProps}
+            airbnbIcalUrlInputProps={homeAirbnbIcalUrlInputProps}
+            onAddressChange={handleAddressChange}
+            onSelectSuggestion={handleAddressSuggestionSelect}
+            onSubmit={handleAddApartmentSubmit}
+          />
 
-          {activeCleanerForm ? (
-            <form
-              className="fold-panel space-y-3"
-              noValidate
-              onSubmit={handleCleanerSubmit((values) => {
-                if (cleanerAlreadyExists) {
-                  setCleanerFormError('name', {
-                    type: 'manual',
-                    message: 'That cleaner already exists.',
-                  })
-                  return
-                }
-
-                if (!isThemeCleanerColor(selectedCleanerColor)) {
-                  setCleanerFormError('colorHex', {
-                    type: 'manual',
-                    message: 'Choose one of the suggested theme colors',
-                  })
-                  return
-                }
-
-                void runAction('add-cleaner', async () => {
-                  await postJson('/api/setup/cleaners', {
-                    ...values,
-                    colorHex: selectedCleanerColor,
-                  })
-                  resetCleanerForm({
-                    name: '',
-                    colorHex: fallbackCleanerColor,
-                  })
-                })
-              })}
-            >
-              <div className="space-y-1">
-                <h2 className="section-title">Add a cleaner</h2>
-              </div>
-              {addCleanerNameError ? (
-                <p className="text-xs text-[var(--accent-deep)]">{addCleanerNameError}</p>
-              ) : null}
-
-              <input
-                className="field"
-                placeholder="Cleaner name"
-                {...registerCleaner('name', {
-                  onChange: () => {
-                    if (cleanerErrors.name) {
-                      clearCleanerErrors('name')
-                    }
-                  },
-                })}
-                aria-invalid={addCleanerNameError ? 'true' : undefined}
-              />
-
-              <div className="space-y-2">
-                <p className="section-title">Color</p>
-                <div className="theme-color-grid" role="radiogroup" aria-label="Cleaner color">
-                  {THEME_CLEANER_COLORS.map((color) => {
-                    const isSelected = selectedCleanerColor.toLocaleLowerCase() === color.hex.toLocaleLowerCase()
-
-                    return (
-                      <button
-                        key={color.hex}
-                        type="button"
-                        className={`theme-color-swatch ${isSelected ? 'is-selected' : ''}`}
-                        style={{ backgroundColor: color.hex }}
-                        onClick={() => {
-                          setCleanerValue('colorHex', color.hex, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          })
-                          clearCleanerErrors('colorHex')
-                        }}
-                        role="radio"
-                        aria-checked={isSelected}
-                        aria-label={color.label}
-                        title={color.label}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-
-              {cleanerErrors.colorHex ? (
-                <p className="text-xs text-[var(--accent-deep)]">{cleanerErrors.colorHex.message}</p>
-              ) : null}
-
-              <button type="submit" className="action-secondary" disabled={!canSubmitCleaner}>
-                {busyKey === 'add-cleaner' ? 'Saving...' : 'Add cleaner'}
-              </button>
-            </form>
-          ) : null}
+          <AddCleanerForm
+            visible={activeCleanerForm}
+            busy={busyKey === 'add-cleaner'}
+            canSubmit={canSubmitCleaner}
+            selectedCleanerColor={selectedCleanerColor}
+            nameError={addCleanerNameError}
+            colorError={cleanerErrors.colorHex?.message}
+            nameInputProps={cleanerNameInputProps}
+            onColorSelect={handleCleanerColorSelect}
+            onSubmit={handleAddCleanerSubmit}
+          />
 
         </div>
       </article>
